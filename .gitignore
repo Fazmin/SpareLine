@@ -1,0 +1,8 @@
+/target
+/apps/*/dist
+/apps/*/src-tauri/gen
+/apps/*/src-tauri/target
+*.db
+*.db-wal
+*.db-shm
+.DS_Store

@@ -1,0 +1,123 @@
+[workspace]
+resolver = "3"
+members = [
+    "crates/sl-proto",
+    "crates/sl-server",
+    "crates/sl-client-core",
+    "crates/sl-ui",
+    "crates/sl-net",
+    "apps/server",
+    "apps/server/src-tauri",
+    "apps/client",
+    "apps/client/src-tauri",
+    "xtask",
+]
+# Native crates built by a plain `cargo build` / `cargo test`.
+# The two Leptos UI crates (apps/server, apps/client) are wasm-only and built by Trunk.
+default-members = [
+    "crates/sl-proto",
+    "crates/sl-server",
+    "crates/sl-client-core",
+    "crates/sl-net",
+    "apps/server/src-tauri",
+    "apps/client/src-tauri",
+    "xtask",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.91"
+license = "MIT OR Apache-2.0"
+authors = ["SpareLine contributors"]
+publish = false
+
+[workspace.dependencies]
+# internal
+sl-proto = { path = "crates/sl-proto" }
+sl-server = { path = "crates/sl-server" }
+sl-client-core = { path = "crates/sl-client-core" }
+sl-ui = { path = "crates/sl-ui" }
+sl-net = { path = "crates/sl-net" }
+
+# serialization / common
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+uuid = { version = "1", features = ["serde"] } # native crates add "v7"
+data-encoding = "2"
+thiserror = "2"
+anyhow = "1"
+parking_lot = "0.12"
+rand = "0.8"
+toml = "0.9"
+
+# async / net
+tokio = { version = "1", features = ["full"] }
+futures-util = { version = "0.3", default-features = false, features = ["sink", "std"] }
+axum = { version = "0.8", features = ["ws"] }
+tower = "0.5"
+tokio-tungstenite = { version = "0.28", default-features = false, features = ["handshake"] }
+rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12", "logging"] }
+tokio-rustls = { version = "0.26", default-features = false, features = ["ring", "tls12", "logging"] }
+rustls-pki-types = "1"
+rcgen = { version = "0.14", default-features = false, features = ["crypto", "pem", "ring"] }
+x509-parser = "0.18"
+mdns-sd = "0.13"
+if-addrs = "0.13"
+governor = "0.10"
+
+# crypto
+argon2 = { version = "0.5", features = ["std"] }
+sha2 = "0.10"
+hmac = "0.12"
+hkdf = "0.12"
+subtle = "2"
+
+# storage
+rusqlite = { version = "0.37", features = ["bundled", "uuid"] }
+rusqlite_migration = "2"
+
+# telemetry
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json", "fmt", "registry"] }
+tracing-appender = "0.2"
+sysinfo = { version = "0.37", default-features = false, features = ["system", "disk"] }
+
+# e2ee
+openmls = "0.9"
+openmls_rust_crypto = "0.6"
+openmls_basic_credential = "0.6"
+openmls_traits = "0.6"
+openmls_sqlite_storage = "0.3"
+tls_codec = "0.5"
+
+# tauri
+tauri = { version = "2", features = ["tray-icon"] }
+tauri-build = { version = "2", features = [] }
+
+# wasm ui
+leptos = { version = "0.8", features = ["csr"] }
+wasm-bindgen = "0.2"
+wasm-bindgen-futures = "0.4"
+js-sys = "0.3"
+web-sys = "0.3"
+serde-wasm-bindgen = "0.6"
+gloo-timers = { version = "0.3", features = ["futures"] }
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+unused_must_use = "deny"
+
+[workspace.lints.clippy]
+dbg_macro = "warn"
+todo = "warn"
+unwrap_used = "warn"
+
+[profile.release]
+lto = true
+codegen-units = 1
+strip = true
+panic = "abort"
+
+[profile.dev.package."*"]
+opt-level = 2

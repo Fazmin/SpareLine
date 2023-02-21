@@ -1,0 +1,41 @@
+# How to cite SpareLine.
+# GitHub reads this file and adds a "Cite this repository" button to the
+# repository page, with ready-made APA and BibTeX versions.
+# Format: Citation File Format 1.2.0 (https://citation-file-format.github.io)
+
+cff-version: 1.2.0
+message: "If you use SpareLine in your work, please cite it using these details."
+type: software
+title: "SpareLine"
+abstract: >-
+  SpareLine is a self-hosted backup chat app for organisations. When the usual
+  cloud chat, email or meeting tools go down, staff keep talking over the
+  office's own network. One office computer runs the server, and staff
+  computers find it automatically. Messages are end-to-end encrypted with
+  Messaging Layer Security (MLS, RFC 9420), so the server only relays sealed
+  messages and administrators cannot read them.
+
+# To credit people by name, replace the entry below with one per person:
+#   - given-names: "First"
+#     family-names: "Last"
+#     orcid: "https://orcid.org/0000-0000-0000-0000"   # optional
+authors:
+  - name: "SpareLine contributors"
+
+version: "0.1.0"
+date-released: 2023-02-21
+license:
+  - MIT
+  - Apache-2.0
+
+keywords:
+  - chat
+  - self-hosted
+  - end-to-end encryption
+  - Messaging Layer Security
+  - business continuity
+  - local network
+  - Rust
+
+# After the first push, uncomment this line and set your repository's address:
+# repository-code: "https://github.com/OWNER/spareline"
