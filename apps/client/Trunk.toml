@@ -1,0 +1,11 @@
+[build]
+target = "index.html"
+dist = "dist"
+
+[serve]
+port = 1420
+open = false
+
+[watch]
+watch = ["src", "styles", "index.html", "../../crates/sl-ui", "../../crates/sl-proto"]
+ignore = ["src-tauri", "dist"]

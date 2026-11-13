@@ -1,0 +1,117 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 600" width="1200" height="600" role="img" aria-labelledby="t d">
+  <title id="t">How SpareLine works</title>
+  <desc id="d">Normally your team talks through cloud chat, email and meetings. When that line goes down, staff computers keep talking over the spare line: your own office network, to a SpareLine Server on one office computer. Messages are encrypted on each device, so the server only relays sealed messages and the admin can't read them.</desc>
+  <style>
+    .bg { fill: #f3f5f3; }
+    .card { fill: #ffffff; stroke: #d8dfdb; stroke-width: 2; }
+    .cloud { fill: #e6eae7; }
+    .ink { fill: #17201d; }
+    .ink-s { stroke: #17201d; }
+    .muted { fill: #59645f; }
+    .faint-s { stroke: #a9b4ae; }
+    .signal { fill: #1b7a5c; }
+    .signal-s { stroke: #1b7a5c; }
+    .signal-tint { fill: #e0f0e8; }
+    .fail { fill: #b3261e; }
+    .fail-tint { fill: #fbe4e1; }
+    .white { fill: #ffffff; }
+    .fail-x { stroke: #b3261e; }
+    text { font-family: "Atkinson Hyperlegible Next", "Segoe UI", -apple-system, system-ui, sans-serif; }
+    .h { font-size: 24px; font-weight: 800; }
+    .b { font-size: 18px; font-weight: 400; }
+    .s { font-size: 16px; font-weight: 600; }
+    .pill { font-size: 15px; font-weight: 800; }
+    @media (prefers-color-scheme: dark) {
+      .bg { fill: #111715; }
+      .card { fill: #182120; stroke: #2b3734; }
+      .cloud { fill: #22302d; }
+      .ink { fill: #e7ede9; }
+      .ink-s { stroke: #e7ede9; }
+      .muted { fill: #98a59f; }
+      .faint-s { stroke: #4a5954; }
+      .signal { fill: #4cc596; }
+      .signal-s { stroke: #4cc596; }
+      .signal-tint { fill: #173328; }
+      .fail { fill: #ff8a80; }
+      .fail-tint { fill: #3a1b19; }
+      .white { fill: #111715; }
+      .fail-x { stroke: #ff8a80; }
+    }
+  </style>
+
+  <rect class="bg" width="1200" height="600" rx="24"/>
+
+  <!-- Cloud: the usual line -->
+  <g>
+    <circle class="cloud" cx="545" cy="118" r="44"/>
+    <circle class="cloud" cx="612" cy="96" r="60"/>
+    <circle class="cloud" cx="682" cy="122" r="42"/>
+    <rect class="cloud" x="500" y="112" width="226" height="54" rx="27"/>
+    <text class="s ink" x="613" y="138" text-anchor="middle">Cloud chat, email, meetings</text>
+    <rect class="fail-tint" x="690" y="40" width="96" height="30" rx="15"/>
+    <text class="pill fail" x="738" y="61" text-anchor="middle">Down</text>
+  </g>
+
+  <!-- Broken main line: team → cloud -->
+  <path class="faint-s" d="M 250 292 C 250 210, 330 150, 400 140" fill="none" stroke-width="5" stroke-linecap="round" stroke-dasharray="2 14"/>
+  <path class="faint-s" d="M 440 138 C 470 136, 490 136, 500 138" fill="none" stroke-width="5" stroke-linecap="round" stroke-dasharray="2 14"/>
+  <circle class="fail-tint" cx="420" cy="139" r="20"/>
+  <g transform="translate(420 139)">
+    <path d="M -8 -8 L 8 8 M 8 -8 L -8 8" fill="none" stroke-width="4" stroke-linecap="round" class="fail-x"/>
+  </g>
+  <text class="b muted" x="300" y="96" text-anchor="middle">The usual line</text>
+
+  <!-- Your team -->
+  <rect class="card" x="90" y="292" width="320" height="190" rx="20"/>
+  <g class="ink">
+    <!-- three laptops -->
+    <g transform="translate(130 330)">
+      <rect class="ink-s" x="0" y="0" width="64" height="42" rx="5" fill="none" stroke-width="4"/>
+      <rect class="ink" x="-10" y="46" width="84" height="7" rx="3.5"/>
+    </g>
+    <g transform="translate(218 330)">
+      <rect class="ink-s" x="0" y="0" width="64" height="42" rx="5" fill="none" stroke-width="4"/>
+      <rect class="ink" x="-10" y="46" width="84" height="7" rx="3.5"/>
+    </g>
+    <g transform="translate(306 330)">
+      <rect class="ink-s" x="0" y="0" width="64" height="42" rx="5" fill="none" stroke-width="4"/>
+      <rect class="ink" x="-10" y="46" width="84" height="7" rx="3.5"/>
+    </g>
+  </g>
+  <text class="h ink" x="114" y="430">Your team</text>
+  <text class="b muted" x="114" y="460">SpareLine on every computer</text>
+
+  <!-- Office server -->
+  <rect class="card" x="790" y="292" width="320" height="190" rx="20"/>
+  <g transform="translate(814 326)">
+    <rect class="ink-s" x="0" y="0" width="88" height="26" rx="6" fill="none" stroke-width="4"/>
+    <rect class="ink-s" x="0" y="34" width="88" height="26" rx="6" fill="none" stroke-width="4"/>
+    <circle class="signal" cx="16" cy="13" r="5"/>
+    <circle class="signal" cx="16" cy="47" r="5"/>
+  </g>
+  <text class="h ink" x="814" y="430">SpareLine Server</text>
+  <text class="b muted" x="814" y="460">One computer in your office</text>
+
+  <!-- The spare line: team ↔ server over the office network -->
+  <rect class="signal" x="430" y="372" width="340" height="10" rx="5"/>
+  <rect class="signal" x="430" y="392" width="230" height="10" rx="5"/>
+  <circle class="signal" cx="430" cy="377" r="9"/>
+  <circle class="signal" cx="770" cy="377" r="9"/>
+  <text class="h ink" x="600" y="342" text-anchor="middle">The spare line</text>
+  <text class="b muted" x="600" y="438" text-anchor="middle">Your own office network</text>
+
+  <!-- Encryption note -->
+  <rect class="signal-tint" x="380" y="500" width="440" height="64" rx="16"/>
+  <g transform="translate(404 514)">
+    <rect class="signal" x="0" y="14" width="26" height="20" rx="4"/>
+    <path class="signal-s" d="M 5 15 V 9 a 8 8 0 0 1 16 0 V 15" fill="none" stroke-width="4"/>
+  </g>
+  <text class="s ink" x="446" y="528">Encrypted on each device</text>
+  <text class="b muted" x="446" y="552">The server only relays sealed messages</text>
+
+  <!-- Side notes -->
+  <text class="s ink" x="90" y="528">Finds the server by itself</text>
+  <text class="b muted" x="90" y="552">Joins with a one-time invite</text>
+  <text class="s ink" x="1110" y="528" text-anchor="end">Admin panel: invites, groups, health</text>
+  <text class="b muted" x="1110" y="552" text-anchor="end">No access to anyone's messages</text>
+</svg>

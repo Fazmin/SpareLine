@@ -1,0 +1,27 @@
+[package]
+name = "sl-ui"
+description = "SpareLine shared Leptos component kit: design tokens, themes, accessibility prefs, Tauri IPC bindings"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+sl-proto.workspace = true
+leptos.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+wasm-bindgen.workspace = true
+wasm-bindgen-futures.workspace = true
+js-sys.workspace = true
+serde-wasm-bindgen.workspace = true
+gloo-timers.workspace = true
+web-sys = { workspace = true, features = [
+    "Document", "Element", "HtmlElement", "Window", "Storage", "MediaQueryList",
+    "KeyboardEvent", "DomTokenList", "CssStyleDeclaration", "Navigator", "Clipboard",
+    "HtmlDialogElement", "EventTarget", "Event", "MediaQueryListEvent", "HtmlInputElement",
+] }
+
+[lints]
+workspace = true

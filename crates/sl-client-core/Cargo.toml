@@ -1,0 +1,53 @@
+[package]
+name = "sl-client-core"
+description = "SpareLine client engine: discovery, pinned TLS transport, sessions, MLS, local store, outbox"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+sl-proto = { workspace = true, features = ["crypto"] }
+sl-net.workspace = true
+keyring = { version = "3.6", features = ["windows-native", "apple-native"] }
+serde.workspace = true
+serde_json.workspace = true
+uuid = { workspace = true, features = ["v7"] }
+data-encoding.workspace = true
+thiserror.workspace = true
+anyhow.workspace = true
+parking_lot.workspace = true
+rand.workspace = true
+
+tokio.workspace = true
+futures-util.workspace = true
+tokio-tungstenite.workspace = true
+rustls.workspace = true
+tokio-rustls.workspace = true
+rustls-pki-types.workspace = true
+x509-parser.workspace = true
+mdns-sd.workspace = true
+
+sha2.workspace = true
+hmac.workspace = true
+hkdf.workspace = true
+subtle.workspace = true
+
+rusqlite.workspace = true
+rusqlite_migration.workspace = true
+tracing.workspace = true
+
+openmls.workspace = true
+openmls_rust_crypto.workspace = true
+openmls_basic_credential.workspace = true
+openmls_traits.workspace = true
+openmls_sqlite_storage.workspace = true
+chacha20poly1305 = "0.10"
+
+[dev-dependencies]
+sl-server.workspace = true
+tempfile = "3"
+
+[lints]
+workspace = true

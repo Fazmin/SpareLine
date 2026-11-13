@@ -1,0 +1,28 @@
+[package]
+name = "sl-proto"
+description = "SpareLine wire protocol, IPC DTOs and shared constants (wasm-safe)"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[features]
+default = []
+# Invite-code derivations, proofs and token hashing. Used by the native server and
+# client engines; the wasm UIs leave it off.
+crypto = ["dep:sha2", "dep:hmac", "dep:hkdf", "dep:subtle", "dep:rand"]
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+uuid.workspace = true
+data-encoding.workspace = true
+sha2 = { workspace = true, optional = true }
+hmac = { workspace = true, optional = true }
+hkdf = { workspace = true, optional = true }
+subtle = { workspace = true, optional = true }
+rand = { workspace = true, optional = true }
+
+[lints]
+workspace = true

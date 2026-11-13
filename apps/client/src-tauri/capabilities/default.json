@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "SpareLine chat window: core IPC and events only. Everything else goes through typed Rust commands.",
+  "windows": ["main"],
+  "permissions": ["core:default"]
+}
