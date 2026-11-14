@@ -78,12 +78,26 @@ pub struct Store {
     pub settings_section: RwSignal<Option<&'static str>>,
 }
 
+thread_local! {
+    /// The app has exactly one `Store`. Async tasks (`spawn_local`) and timers run without
+    /// a reactive owner, so `use_context` finds nothing there; they fall back to this copy.
+    static STORE: std::cell::Cell<Option<Store>> = const { std::cell::Cell::new(None) };
+}
+
 pub fn store() -> Store {
-    expect_context::<Store>()
+    use_context::<Store>()
+        .or_else(|| STORE.with(std::cell::Cell::get))
+        .expect("the store is created in App before anything renders")
 }
 
 impl Store {
     pub fn new() -> Self {
+        let s = Self::create();
+        STORE.with(|c| c.set(Some(s)));
+        s
+    }
+
+    fn create() -> Self {
         Self {
             app: RwSignal::new(AppState {
                 phase: Phase::Onboarding,

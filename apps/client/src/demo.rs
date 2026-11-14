@@ -378,18 +378,20 @@ fn diagnostics() -> Diagnostics {
 
 pub fn install(mode: &str) {
     preset_theme();
-    let phase = match mode {
+    let start = match mode {
         "onboarding" => Phase::Onboarding,
         "signin" => Phase::SignedOut,
         // "chat" = Ready, with the first conversation opened by the app.
         _ => Phase::Ready,
     };
+    // Joining or signing in moves the preview into the sample workspace.
+    let phase = std::rc::Rc::new(std::cell::Cell::new(start));
     sl_ui::ipc::set_mock(move |cmd, args| {
         let conv: Option<Uuid> = args
             .get("conversation")
             .and_then(|v| serde_json::from_value(v.clone()).ok());
         let v: Value = match cmd {
-            "app_state" => serde_json::to_value(state(phase)).unwrap_or_default(),
+            "app_state" => serde_json::to_value(state(phase.get())).unwrap_or_default(),
             "conversations" => serde_json::to_value(conversations()).unwrap_or_default(),
             "messages" => {
                 let before = args.get("before").and_then(Value::as_i64);
@@ -421,14 +423,12 @@ pub fn install(mode: &str) {
                     &input.body,
                     0,
                 );
-                m.status = SendStatus::Pending;
+                m.status = SendStatus::Sent;
                 serde_json::to_value(m).unwrap_or_default()
             }
             "join" | "login" | "redeem" => {
-                return Err(UiError {
-                    code: "demo".into(),
-                    message: "This is a preview. Joining works in the desktop app.".into(),
-                });
+                phase.set(Phase::Ready);
+                serde_json::to_value(state(Phase::Ready)).unwrap_or_default()
             }
             _ => Value::Null,
         };

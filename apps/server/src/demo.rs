@@ -447,10 +447,12 @@ fn logs() -> Vec<LogEntry> {
 pub fn install(mode: &str) {
     preset_theme();
     let mode = mode.to_string();
+    // Finishing setup in the preview opens the sample control panel.
+    let set_up = std::rc::Rc::new(std::cell::Cell::new(mode != "setup"));
     sl_ui::ipc::set_mock(move |cmd, args| {
         let v: Value = match cmd {
             "panel_state" => json!({
-                "needs_setup": mode == "setup",
+                "needs_setup": !set_up.get(),
                 "unlocked": mode != "locked",
                 "server_name": "Head office",
                 "suggested_name": "SpareLine on OFFICE-PC",
@@ -608,7 +610,43 @@ pub fn install(mode: &str) {
                 json!({ "version": "0.1.0", "data_dir": "C:\\Users\\it-admin\\AppData\\Local\\SpareLine\\Server", "platform": "windows" })
             }
             "autostart_enabled" => json!(true),
-            "setup" => json!({ "recovery_key": "RK-RH6S-CYJN-ZBSG-QMX0-XHBT-93EH" }),
+            "setup" => {
+                set_up.set(true);
+                json!({ "recovery_key": "RK-RH6S-CYJN-ZBSG-QMX0-XHBT-93EH" })
+            }
+            "create_invites" => {
+                let input: Option<CreateInvitesInput> = args
+                    .get("input")
+                    .and_then(|v| serde_json::from_value(v.clone()).ok());
+                let n = input.as_ref().map_or(1, |i| i.count.clamp(1, 20));
+                let created: Vec<CreatedInvite> = (0..n)
+                    .map(|i| {
+                        let code = ["SPL-7K3M-Q9TD-WX4P-H2RB", "SPL-M8VC-3NJK-PQ7A-TY6E", "SPL-4HWD-R2XB-K9FZ-C5LN"]
+                            [usize::try_from(i % 3).unwrap_or(0)]
+                            .to_string();
+                        let host = "192.168.1.20:7443";
+                        CreatedInvite {
+                            row: InviteRow {
+                                id: id(820 + u128::from(i)),
+                                kind: InviteKind::NewUser,
+                                groups: vec![gref(903, "Everyone")],
+                                target_user: None,
+                                used_by: None,
+                                note: String::new(),
+                                created_at: now(),
+                                expires_at: now() + 7 * 86_400_000,
+                                status: InviteStatus::Pending,
+                            },
+                            message: format!(
+                                "You're invited to SpareLine, our backup chat for when the usual tools are down.\n\n1. Install the SpareLine app.\n2. Choose \"I have an invite\" and paste this message.\n\nYour code: {code}\nIf SpareLine doesn't find the server automatically, use: {host}"
+                            ),
+                            link: format!("spareline://join?code={code}&host={host}"),
+                            code,
+                        }
+                    })
+                    .collect();
+                serde_json::to_value(created).unwrap_or_default()
+            }
             _ => Value::Null,
         };
         Ok(v)

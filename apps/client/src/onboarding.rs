@@ -203,21 +203,24 @@ fn JoinForm(back: Callback<()>) -> impl IntoView {
     let parsed = Memo::new(move |_| sl_proto::code::parse_invite_text(&invite.get()));
     let hints = Signal::derive(move || parsed.get().hosts);
 
-    // Suggest a username from the display name.
+    // Suggest a username from the display name, letter by letter, until the person
+    // types their own. (Checking the suggestion's validity instead would stop at the
+    // first letter, because a one-letter username isn't valid yet.)
+    let username_edited = RwSignal::new(false);
     Effect::new(move |_| {
         let d = display.get();
-        if username.get_untracked().is_empty() || valid_username(&username.get_untracked()) {
-            let s: String = d
-                .trim()
-                .to_lowercase()
-                .chars()
-                .map(|c| if c.is_whitespace() { '.' } else { c })
-                .filter(|c| c.is_ascii_alphanumeric() || *c == '.')
-                .collect();
-            if !s.is_empty() {
-                username.set(s.chars().take(32).collect());
-            }
+        if username_edited.get_untracked() {
+            return;
         }
+        let s: String = d
+            .trim()
+            .to_lowercase()
+            .chars()
+            .map(|c| if c.is_whitespace() { '.' } else { c })
+            .filter(|c| c.is_ascii_alphanumeric() || *c == '.')
+            .take(32)
+            .collect();
+        username.set(s);
     });
 
     let submit = move |e: leptos::ev::SubmitEvent| {
@@ -300,7 +303,7 @@ fn JoinForm(back: Callback<()>) -> impl IntoView {
             </div>
             <div class="field">
                 <label for="username">"Username"</label>
-                <input id="username" class="input" autocomplete="username" aria-describedby="username-hint" prop:value=move || username.get() on:input=move |e| username.set(event_target_value(&e))/>
+                <input id="username" class="input" autocomplete="username" aria-describedby="username-hint" prop:value=move || username.get() on:input=move |e| { let v = event_target_value(&e); username_edited.set(!v.is_empty()); username.set(v); }/>
                 <span id="username-hint" class="hint">"You'll use this to sign in. Letters, numbers and dots."</span>
             </div>
             <div class="field">

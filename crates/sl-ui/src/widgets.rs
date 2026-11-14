@@ -150,14 +150,23 @@ impl Toasts {
     }
 }
 
+thread_local! {
+    /// The app has exactly one toast region. Async tasks (`spawn_local`) run without a
+    /// reactive owner, so `use_context` finds nothing there; they fall back to this copy.
+    static TOASTS: std::cell::Cell<Option<Toasts>> = const { std::cell::Cell::new(None) };
+}
+
 pub fn provide_toasts() -> Toasts {
     let t = Toasts(RwSignal::new(Vec::new()));
     provide_context(t);
+    TOASTS.with(|c| c.set(Some(t)));
     t
 }
 
 pub fn toasts() -> Toasts {
-    expect_context::<Toasts>()
+    use_context::<Toasts>()
+        .or_else(|| TOASTS.with(std::cell::Cell::get))
+        .expect("provide_toasts() runs when the app starts")
 }
 
 #[component]
