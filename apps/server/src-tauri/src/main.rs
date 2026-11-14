@@ -4,13 +4,16 @@
 //!
 //! Headless: `spareline-server --headless [--data-dir DIR]`
 //! (first run: set `SPARELINE_ADMIN_PASSWORD` to complete setup without the panel).
+//!
+//! Taking over from a failed server: `spareline-server --headless --restore COPY`
+//! with `SPARELINE_STANDBY_PASSWORD` set, on a fresh install or an empty `--data-dir`.
 
 #![cfg_attr(
     all(not(debug_assertions), target_os = "windows"),
     windows_subsystem = "windows"
 )]
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
 use parking_lot::Mutex;
@@ -437,6 +440,99 @@ async fn backup_now(p: State<'_, Panel>) -> R<BackupRow> {
     p.engine.admin().backup_now().await.map_err(ui)
 }
 
+// ---- standby copies -------------------------------------------------------------------
+
+#[tauri::command]
+fn standby_status(p: State<'_, Panel>) -> R<StandbyStatus> {
+    p.guard()?;
+    Ok(p.engine.admin().standby_status())
+}
+
+#[tauri::command]
+async fn standby_setup(p: State<'_, Panel>, input: StandbySetupInput) -> R<StandbyStatus> {
+    p.guard()?;
+    p.engine.admin().standby_setup(input).await.map_err(ui)
+}
+
+#[tauri::command]
+async fn standby_copy_now(p: State<'_, Panel>) -> R<StandbyCopyRow> {
+    p.guard()?;
+    p.engine.admin().standby_copy_now().await.map_err(ui)
+}
+
+#[tauri::command]
+fn standby_turn_off(p: State<'_, Panel>) -> R<()> {
+    p.guard()?;
+    p.engine.admin().standby_turn_off().map_err(ui)
+}
+
+/// Choose the folder for standby copies.
+#[tauri::command]
+async fn pick_folder(app: AppHandle, p: State<'_, Panel>) -> R<Option<String>> {
+    p.guard()?;
+    Ok(app
+        .dialog()
+        .file()
+        .blocking_pick_folder()
+        .and_then(|f| f.into_path().ok())
+        .map(|f| f.to_string_lossy().to_string()))
+}
+
+/// Restoring is offered only before setup, on a freshly installed server.
+fn restore_allowed(p: &Panel) -> R<()> {
+    if p.engine.needs_setup() {
+        Ok(())
+    } else {
+        Err(err("already_set_up", "This server is already set up."))
+    }
+}
+
+#[tauri::command]
+async fn pick_standby_copy(app: AppHandle, p: State<'_, Panel>) -> R<Option<String>> {
+    restore_allowed(&p)?;
+    Ok(app
+        .dialog()
+        .file()
+        .add_filter("SpareLine standby copy", &["slstandby"])
+        .blocking_pick_file()
+        .and_then(|f| f.into_path().ok())
+        .map(|f| f.to_string_lossy().to_string()))
+}
+
+/// Check a copy's password and describe it, without changing anything.
+#[tauri::command]
+async fn standby_inspect(p: State<'_, Panel>, path: String, password: String) -> R<StandbyInfo> {
+    restore_allowed(&p)?;
+    tokio::task::spawn_blocking(move || sl_server::standby::inspect(Path::new(&path), &password))
+        .await
+        .map_err(|e| err("internal", e.to_string()))?
+        .map_err(ui)
+}
+
+#[tauri::command]
+async fn standby_restore(
+    app: AppHandle,
+    p: State<'_, Panel>,
+    path: String,
+    password: String,
+) -> R<RestoreResult> {
+    restore_allowed(&p)?;
+    let info = p
+        .engine
+        .restore_standby(Path::new(&path), &password)
+        .await
+        .map_err(ui)?;
+    if let Err(e) = p.engine.start().await {
+        *p.start_error.lock() = Some(e.to_string());
+    }
+    *p.unlocked.lock() = Some(Instant::now());
+    let _ = app.autolaunch().enable();
+    Ok(RestoreResult {
+        info,
+        addresses: sl_server::health::lan_addresses(),
+    })
+}
+
 #[tauri::command]
 fn open_data_folder(app: AppHandle, p: State<'_, Panel>) -> R<()> {
     p.guard()?;
@@ -535,7 +631,7 @@ fn main() {
     };
 
     if headless {
-        run_headless(engine);
+        run_headless(engine, arg_value(&args, "--restore"));
         return;
     }
 
@@ -666,6 +762,14 @@ fn main() {
             restart_server,
             backups,
             backup_now,
+            standby_status,
+            standby_setup,
+            standby_copy_now,
+            standby_turn_off,
+            pick_folder,
+            pick_standby_copy,
+            standby_inspect,
+            standby_restore,
             open_data_folder,
             save_text,
             autostart_enabled,
@@ -678,7 +782,7 @@ fn main() {
     }
 }
 
-fn run_headless(engine: Engine) {
+fn run_headless(engine: Engine, restore: Option<String>) {
     let rt = match tokio::runtime::Runtime::new() {
         Ok(rt) => rt,
         Err(e) => {
@@ -687,6 +791,33 @@ fn run_headless(engine: Engine) {
         }
     };
     rt.block_on(async move {
+        if let Some(copy) = restore {
+            if !engine.needs_setup() {
+                eprintln!("This data folder is already set up. To restore a standby copy, use a fresh install or an empty --data-dir.");
+                std::process::exit(2);
+            }
+            let Ok(pw) = std::env::var("SPARELINE_STANDBY_PASSWORD") else {
+                eprintln!("Set SPARELINE_STANDBY_PASSWORD to the standby password to restore a copy.");
+                std::process::exit(2);
+            };
+            match engine.restore_standby(Path::new(&copy), &pw).await {
+                Ok(info) => {
+                    println!(
+                        "Restored {} from the standby copy taken {}.",
+                        info.server_name,
+                        sl_server::standby::utc_display(info.taken_at)
+                    );
+                    if !info.addresses.is_empty() {
+                        println!("The old server's address was {}.", info.addresses.join(", "));
+                    }
+                    println!("Keep the old server switched off: two servers with the same identity would confuse staff apps.");
+                }
+                Err(e) => {
+                    eprintln!("Restore failed: {e}");
+                    std::process::exit(2);
+                }
+            }
+        }
         if engine.needs_setup() {
             match std::env::var("SPARELINE_ADMIN_PASSWORD") {
                 Ok(pw) => match engine.setup(&sl_server::config::default_server_name(), &pw).await {

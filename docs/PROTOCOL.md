@@ -44,4 +44,13 @@ A rogue server or a spoofed mDNS answer can't produce the proof without knowing 
 
 **Joining.** Devices join through a Welcome from the member who added them, or by **External Commit** from the latest GroupInfo the server stores. External commits are used for new devices and to rejoin after falling behind.
 
+**Restoring from a standby copy.** A server restored from a standby copy has gone back in time: envelopes, commits and accounts after the copy are gone, while devices that were online kept them.
+
+- `ServerInfo.restore` carries a `RestoreMarker { id, copy_taken_at }`, new for every restore.
+- `ConversationInfo.restored` carries a `RestorePoint { seq, epoch }`: the conversation's `last_seq` and epoch in the copy.
+- On the first connection after seeing a new marker id, a device rewinds each conversation whose watermark is past `restored.seq` back to it, so the restored server's new envelopes, which reuse those sequence numbers, aren't skipped. If its MLS epoch is past `restored.epoch`, it drops the group and rejoins by External Commit. It then records the marker id so this happens once.
+- A device that gets `StaleEpoch` with a server epoch *lower* than its own also drops the group and rejoins, rather than catching up.
+
+Both fields are optional and older clients ignore them, so `PROTOCOL_VERSION` is unchanged.
+
 **Application payloads** inside MLS are versioned JSON: `Text`, `Edit`, `Delete`, `Reaction` and `ChatMeta`. Clients accept edits and deletes only from the author, as authenticated by MLS.

@@ -290,6 +290,15 @@ impl Store {
         Ok(())
     }
 
+    /// Move a conversation back to `seq` after the server was restored from a copy.
+    pub fn rewind(&self, id: ConversationId, seq: u64) -> ClientResult<()> {
+        self.conn.execute(
+            "UPDATE conversations SET wm = MIN(wm, ?1), read_seq = MIN(read_seq, ?1), last_seq = ?1 WHERE id = ?2",
+            params![seq as i64, id],
+        )?;
+        Ok(())
+    }
+
     pub fn set_read_seq(&self, id: ConversationId, seq: u64) -> ClientResult<()> {
         self.conn.execute(
             "UPDATE conversations SET read_seq = MAX(read_seq, ?1) WHERE id = ?2",

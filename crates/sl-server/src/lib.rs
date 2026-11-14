@@ -21,13 +21,14 @@ pub mod hub;
 mod mdns;
 pub mod net;
 mod retention;
+pub mod standby;
 pub mod telemetry;
 pub mod tls;
 mod ws;
 
 use std::net::{IpAddr, SocketAddr};
 use std::num::NonZeroU32;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
@@ -36,8 +37,9 @@ use axum::routing::get;
 use governor::{DefaultKeyedRateLimiter, Quota, RateLimiter};
 use parking_lot::{Mutex, RwLock};
 use rusqlite::{OptionalExtension, params};
+use sl_proto::panel::StandbyInfo;
 use sl_proto::panel::{ConnEventKind, HealthCheck};
-use sl_proto::{ApiError, ErrorCode, ServerInfo, UserId};
+use sl_proto::{ApiError, ErrorCode, RestoreMarker, ServerInfo, UserId};
 use tokio::sync::oneshot;
 use tokio::task::JoinHandle;
 
@@ -99,6 +101,9 @@ struct Inner {
         Option<(Instant, sl_proto::panel::SystemStats)>,
     )>,
     health_cache: Mutex<Option<(Instant, Vec<HealthCheck>)>>,
+    standby: Mutex<standby::State>,
+    /// Set if this server was restored from a standby copy.
+    restore: RwLock<Option<RestoreMarker>>,
 }
 
 #[derive(Default)]
@@ -125,6 +130,9 @@ impl Engine {
             .map_err(|e| anyhow::anyhow!("{e}"))?;
         let dir = DirectoryCache::default();
         dir.set(vis);
+        let restore = db
+            .write_sync(|c| Ok(standby::load_marker(c)))
+            .unwrap_or(None);
         // Per address: 120 attempts a minute, bursts of 60.
         let quota = Quota::per_minute(NonZeroU32::new(120).unwrap_or(NonZeroU32::MIN))
             .allow_burst(NonZeroU32::new(60).unwrap_or(NonZeroU32::MIN));
@@ -149,6 +157,8 @@ impl Engine {
                 mdns_allowed: opts.mdns,
                 sys: Mutex::new((sysinfo::System::new(), None)),
                 health_cache: Mutex::new(None),
+                standby: Mutex::new(standby::State::default()),
+                restore: RwLock::new(restore),
             }),
         })
     }
@@ -199,7 +209,33 @@ impl Engine {
             name: c.server_name.clone(),
             proto: sl_proto::PROTOCOL_VERSION,
             version: env!("CARGO_PKG_VERSION").to_string(),
+            restore: *self.inner.restore.read(),
         }
+    }
+
+    pub(crate) fn standby_state(&self) -> parking_lot::MutexGuard<'_, standby::State> {
+        self.inner.standby.lock()
+    }
+
+    /// Take over from a failed server by restoring its standby copy. Only on a fresh
+    /// install, before the server has started.
+    pub async fn restore_standby(&self, path: &Path, password: &str) -> AppResult<StandbyInfo> {
+        standby::restore(self, path, password).await
+    }
+
+    /// Switch to the identity and settings of a restored copy.
+    pub(crate) fn adopt_restored(
+        &self,
+        config: Config,
+        tls: TlsIdentity,
+        marker: RestoreMarker,
+    ) -> AppResult<()> {
+        config.save(&self.inner.paths)?;
+        *self.inner.config.write() = config;
+        *self.inner.tls.write() = tls;
+        *self.inner.restore.write() = Some(marker);
+        *self.inner.health_cache.lock() = None;
+        Ok(())
     }
 
     pub(crate) fn update_config<T>(&self, f: impl FnOnce(&mut Config) -> T) -> AppResult<T> {
@@ -264,6 +300,7 @@ impl Engine {
         let db = self.inner.db.clone();
         let (action, target, detail) = (action.to_string(), target.to_string(), detail.into());
         tracing::info!(target: "sl_server::admin", %action, %target, "admin action");
+        self.inner.standby.lock().mark_dirty();
         tokio::spawn(async move {
             let _ = db
                 .write(move |c| {
@@ -476,6 +513,7 @@ impl Engine {
             rt.shutdown = Some(tx);
             rt.local_addr = Some(local);
             rt.jobs.push(retention::spawn(self.clone()));
+            rt.jobs.push(standby::spawn(self.clone()));
         }
         self.restart_mdns();
         tracing::info!(%local, name = %cfg.server_name, "SpareLine Server is running");

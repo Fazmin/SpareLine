@@ -71,6 +71,7 @@ Typing isn't stored, and anyone can turn off read receipts in Settings.
 | Problem reports sent by staff apps | 30 days |
 | Server logs, which never contain message content | 14 days |
 | Backups of the server database | The last 7 daily backups |
+| Standby copies, if turned on | The last 4, encrypted with a standby password, in a folder you choose |
 | Accounts and groups | Until an admin deletes them |
 | The audit log of admin actions | Not deleted automatically |
 
@@ -80,7 +81,7 @@ Typing isn't stored, and anyone can turn off read receipts in Settings.
 - **Announcements aren't encrypted.** Keep confidential information out of them.
 - **The server sees who, when and how much.** It knows who is in each chat and when messages are sent, but never what they say.
 - **History is only as safe as the computer.** Anyone who can sign in to a person's computer account can open SpareLine as them. Use screen locks and full-disk encryption (BitLocker or FileVault). Encrypting the whole local database is planned.
-- **Protect the server and its backups.** They hold account details, password hashes and sealed messages, though nothing readable.
+- **Protect the server and its backups.** They hold account details, password hashes and sealed messages, though nothing readable. Standby copies hold the same, plus the server's certificate key, and open only with the standby password.
 
 The [privacy statement](docs/PRIVACY.md) lists everything that is stored, and the [protocol notes](docs/PROTOCOL.md) describe the trust model and cryptography in full. Found a security problem? Please report it privately: open the **Security** tab and choose **Report a vulnerability**.
 
@@ -89,6 +90,7 @@ The [privacy statement](docs/PRIVACY.md) lists everything that is stored, and th
 - **Calm to use.** A quiet, compact design in light and dark, with larger text, high contrast, an easier-to-read font and full keyboard support.
 - **Quick to get around.** Press <kbd>⌘K</kbd> (<kbd>Ctrl</kbd>+<kbd>K</kbd> on Windows) in either app to jump to any chat, page or action.
 - **Easy to look after.** The control panel shows who's connected, what's wrong and how to fix it.
+- **Ready if the server fails.** Standby copies let another computer take over with the same identity, so staff apps reconnect by themselves. See the [admin guide](docs/ADMIN_GUIDE.md#if-the-server-computer-fails).
 
 ## Get started
 

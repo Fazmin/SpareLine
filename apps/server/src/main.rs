@@ -13,6 +13,7 @@ mod overview;
 mod people;
 mod settings;
 mod shell;
+mod standby;
 
 use leptos::prelude::*;
 use sl_proto::panel::PanelState;

@@ -39,3 +39,4 @@ Admin announcements, the banners at the top of SpareLine, are not encrypted. Adm
 - **Encrypted copies on the server:** kept for 30 days by default, for devices that are offline, then deleted.
 - **Connection history:** kept for 7 days.
 - **Server logs:** kept for 14 days, and never contain message content.
+- **Standby copies,** if your admin turns them on: the last 4 by default, in a folder your admin chooses. They hold the same as the server, encrypted with a standby password, so another computer can take over if the server fails.

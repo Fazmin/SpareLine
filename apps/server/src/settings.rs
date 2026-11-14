@@ -1,4 +1,4 @@
-//! Settings: server, retention, backups, admin password, appearance, about.
+//! Settings: server, retention, backups, standby copies, admin password, appearance, about.
 
 use leptos::prelude::*;
 use leptos::task::spawn_local;
@@ -7,6 +7,7 @@ use sl_proto::panel::*;
 use sl_ui::{AppearanceControls, Icon, Switch, format, ipc, toasts};
 
 use crate::ctx::{act, call, call0, ctx};
+use crate::standby::StandbySection;
 
 #[derive(Deserialize, Clone, Default)]
 struct AppInfo {
@@ -135,7 +136,7 @@ pub fn SettingsPage() -> impl IntoView {
         <div class="page-head">
             <div class="grow">
                 <h1>"Settings"</h1>
-                <p class="lede">"Server options, backups, the admin password and how this panel looks."</p>
+                <p class="lede">"Server options, backups and standby copies, the admin password and how this panel looks."</p>
             </div>
         </div>
         <section aria-labelledby="h-server">
@@ -185,6 +186,7 @@ pub fn SettingsPage() -> impl IntoView {
                 </table>
             </div>
         </section>
+        <StandbySection/>
         <section class="section" aria-labelledby="h-admin">
             <div class="section-title"><h2 id="h-admin">"Admin password"</h2></div>
             <form class="box stack" on:submit=change_pw>

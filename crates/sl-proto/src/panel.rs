@@ -352,3 +352,61 @@ pub struct BackupRow {
     pub created_at: Timestamp,
     pub size: u64,
 }
+
+/// Standby copies: an encrypted copy of this server kept somewhere else, so another
+/// computer can take over if this one fails.
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub struct StandbyStatus {
+    pub enabled: bool,
+    /// Where copies go (empty when off).
+    pub folder: String,
+    pub interval_minutes: u32,
+    pub keep: u32,
+    /// A standby password has been set.
+    pub has_password: bool,
+    pub last_copy: Option<StandbyCopyRow>,
+    /// The most recent attempt failed, and why.
+    pub last_error: Option<String>,
+    /// The folder is on the same disk as this server's data, so it wouldn't survive
+    /// a disk failure.
+    pub same_disk: bool,
+    /// Copies of this server in the folder, newest first.
+    pub copies: Vec<StandbyCopyRow>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct StandbyCopyRow {
+    pub file_name: String,
+    pub created_at: Timestamp,
+    pub size: u64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct StandbySetupInput {
+    pub folder: String,
+    pub interval_minutes: u32,
+    pub keep: u32,
+    /// Empty keeps the current standby password.
+    pub password: String,
+}
+
+/// What a standby copy holds, shown before restoring it.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct StandbyInfo {
+    pub server_name: String,
+    pub server_id: Uuid,
+    pub taken_at: Timestamp,
+    pub fingerprint: String,
+    pub port: u16,
+    pub people: u32,
+    /// The old server's network addresses when the copy was taken.
+    pub addresses: Vec<String>,
+    pub app_version: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RestoreResult {
+    pub info: StandbyInfo,
+    /// This computer's network addresses.
+    pub addresses: Vec<String>,
+}

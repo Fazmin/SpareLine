@@ -231,12 +231,60 @@ fn health() -> Vec<HealthCheck> {
         ),
         c("clock", "System clock", CheckStatus::Ok, "Looks right"),
         c(
+            "standby",
+            "Standby copy",
+            CheckStatus::Ok,
+            "Last copy 4 min ago in \\\\fileserver\\it\\SpareLine standby",
+        ),
+        c(
             "backup",
             "Backups",
             CheckStatus::Ok,
             "Last backup 9 h ago (spareline-1763011200000.db)",
         ),
     ]
+}
+
+const STANDBY_FOLDER: &str = "\\\\fileserver\\it\\SpareLine standby";
+
+fn standby_status(on: bool) -> StandbyStatus {
+    let copies: Vec<StandbyCopyRow> = ["104200", "102700", "101200", "095700"]
+        .iter()
+        .enumerate()
+        .map(|(i, t)| StandbyCopyRow {
+            file_name: format!("spareline-standby-20261114-{t}-0193a1.slstandby"),
+            created_at: now() - (4 + 15 * i as i64) * 60_000,
+            size: 4_421_632 - i as u64 * 9_216,
+        })
+        .collect();
+    StandbyStatus {
+        enabled: on,
+        folder: if on {
+            STANDBY_FOLDER.into()
+        } else {
+            String::new()
+        },
+        interval_minutes: 15,
+        keep: 4,
+        has_password: on,
+        last_copy: if on { copies.first().cloned() } else { None },
+        last_error: None,
+        same_disk: false,
+        copies: if on { copies } else { Vec::new() },
+    }
+}
+
+fn standby_info() -> StandbyInfo {
+    StandbyInfo {
+        server_name: "Head office".into(),
+        server_id: id(1),
+        taken_at: now() - 7 * 60_000,
+        fingerprint: "E0AE E89D F901 74CD 9568 C274 8447 8705".into(),
+        port: 7443,
+        people: 47,
+        addresses: vec!["192.168.1.20".into()],
+        app_version: "0.1.0".into(),
+    }
 }
 
 fn overview() -> Value {
@@ -449,6 +497,7 @@ pub fn install(mode: &str) {
     let mode = mode.to_string();
     // Finishing setup in the preview opens the sample control panel.
     let set_up = std::rc::Rc::new(std::cell::Cell::new(mode != "setup"));
+    let standby_on = std::rc::Rc::new(std::cell::Cell::new(true));
     sl_ui::ipc::set_mock(move |cmd, args| {
         let v: Value = match cmd {
             "panel_state" => json!({
@@ -610,6 +659,36 @@ pub fn install(mode: &str) {
                 json!({ "version": "0.1.0", "data_dir": "C:\\Users\\it-admin\\AppData\\Local\\SpareLine\\Server", "platform": "windows" })
             }
             "autostart_enabled" => json!(true),
+            "standby_status" => {
+                serde_json::to_value(standby_status(standby_on.get())).unwrap_or_default()
+            }
+            "standby_setup" => {
+                standby_on.set(true);
+                serde_json::to_value(standby_status(true)).unwrap_or_default()
+            }
+            "standby_copy_now" => serde_json::to_value(StandbyCopyRow {
+                file_name: "spareline-standby-20261114-104900-0193a1.slstandby".into(),
+                created_at: now(),
+                size: 4_421_632,
+            })
+            .unwrap_or_default(),
+            "standby_turn_off" => {
+                standby_on.set(false);
+                Value::Null
+            }
+            "pick_folder" => json!(STANDBY_FOLDER),
+            "pick_standby_copy" => json!(format!(
+                "{STANDBY_FOLDER}\\spareline-standby-20261114-104200-0193a1.slstandby"
+            )),
+            "standby_inspect" => serde_json::to_value(standby_info()).unwrap_or_default(),
+            "standby_restore" => {
+                set_up.set(true);
+                serde_json::to_value(RestoreResult {
+                    info: standby_info(),
+                    addresses: vec!["192.168.1.33".into()],
+                })
+                .unwrap_or_default()
+            }
             "setup" => {
                 set_up.set(true);
                 json!({ "recovery_key": "RK-RH6S-CYJN-ZBSG-QMX0-XHBT-93EH" })

@@ -44,6 +44,24 @@ impl TlsIdentity {
         Self::from_der(cert_der, key_der)
     }
 
+    /// Adopt an identity from a standby copy, so apps that pinned the old server trust
+    /// this one.
+    pub fn install(paths: &Paths, cert_der: Vec<u8>, key_der: Vec<u8>) -> anyhow::Result<Self> {
+        let id = Self::from_der(cert_der, key_der)?;
+        id.server_config()?;
+        std::fs::create_dir_all(&paths.tls_dir)?;
+        std::fs::write(&paths.cert, &id.cert_der)?;
+        write_private(&paths.key, &id.key_der)?;
+        let pem = pem_encode("CERTIFICATE", &id.cert_der);
+        let _ = std::fs::write(paths.tls_dir.join("server.crt.pem"), pem);
+        Ok(id)
+    }
+
+    /// The private key, for standby copies only.
+    pub(crate) fn key_der(&self) -> &[u8] {
+        &self.key_der
+    }
+
     /// Replace the identity with a fresh one. All clients will need setup codes.
     pub fn regenerate(paths: &Paths) -> anyhow::Result<Self> {
         let _ = std::fs::remove_file(&paths.cert);
@@ -105,7 +123,7 @@ fn generate() -> anyhow::Result<(Vec<u8>, Vec<u8>)> {
     Ok((cert.der().to_vec(), key.serialize_der()))
 }
 
-fn write_private(path: &std::path::Path, data: &[u8]) -> std::io::Result<()> {
+pub(crate) fn write_private(path: &std::path::Path, data: &[u8]) -> std::io::Result<()> {
     std::fs::write(path, data)?;
     #[cfg(unix)]
     {

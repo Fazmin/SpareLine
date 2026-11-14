@@ -5,7 +5,7 @@ use std::time::Duration;
 
 use sl_client_core::{Client, ClientOptions, MemoryStore};
 use sl_proto::client_ipc::*;
-use sl_proto::panel::CreateInvitesInput;
+use sl_proto::panel::{CreateInvitesInput, StandbySetupInput};
 use sl_proto::{ConversationKind, ErrorCode, UserId};
 use sl_server::{Engine, EngineOptions, Telemetry};
 use tokio::sync::broadcast;
@@ -351,4 +351,189 @@ async fn full_flow() {
     }
 
     engine.stop().await;
+}
+
+/// Wait until `needle` has appeared in the client's diagnostics log `times` times.
+async fn wait_log(c: &Client, needle: &str, times: usize) {
+    let deadline = tokio::time::Instant::now() + T;
+    loop {
+        let d = c.diagnostics().await.expect("diagnostics");
+        if d.log.iter().filter(|l| l.contains(needle)).count() >= times {
+            return;
+        }
+        assert!(
+            tokio::time::Instant::now() < deadline,
+            "timed out waiting for {needle:?} in {:#?}",
+            d.log
+        );
+        tokio::time::sleep(Duration::from_millis(100)).await;
+    }
+}
+
+async fn log_count(c: &Client, needle: &str) -> usize {
+    let d = c.diagnostics().await.expect("diagnostics");
+    d.log.iter().filter(|l| l.contains(needle)).count()
+}
+
+/// The server computer fails. A new one restores the standby copy and takes over at
+/// the same address. The copy predates the last messages and a membership change, so
+/// the apps must rewind and rejoin before they can talk again.
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn standby_copy_takes_over() {
+    let tmp = tempfile::tempdir().expect("tmp");
+    let standby_dir = tmp.path().join("standby");
+    std::fs::create_dir_all(&standby_dir).expect("standby dir");
+
+    let mut opts = EngineOptions::new(tmp.path().join("server-a"), Telemetry::detached());
+    opts.bind_override = Some("127.0.0.1:0".parse().expect("addr"));
+    opts.mdns = false;
+    let old = Engine::open(opts).expect("engine");
+    old.setup("Head office", "admin password 1")
+        .await
+        .expect("setup");
+    let local = old.start().await.expect("start");
+    let addr = format!("127.0.0.1:{}", local.port());
+    let ops = old
+        .admin()
+        .create_group("Ops".into(), String::new())
+        .await
+        .expect("group")
+        .id;
+
+    let alice = client(tmp.path(), "alice");
+    let bob = client(tmp.path(), "bob");
+    let carol = client(tmp.path(), "carol");
+    let a_state = join(&alice, invite(&old, vec![ops]).await, &addr, "alice").await;
+    let b_state = join(&bob, invite(&old, vec![ops]).await, &addr, "bob").await;
+    let (a_id, b_id) = (user_id(&a_state), user_id(&b_state));
+    let mut alice_rx = alice.subscribe();
+    let mut bob_rx = bob.subscribe();
+
+    let room = alice
+        .start_chat(StartChatInput {
+            kind: ConversationKind::Group,
+            members: vec![b_id],
+            scope_group: Some(ops),
+            title: "Incident room".into(),
+        })
+        .await
+        .expect("chat");
+    alice
+        .send(SendInput {
+            conversation: room.id,
+            body: "before the copy".into(),
+            reply_to: None,
+        })
+        .await
+        .expect("send");
+    wait_message(&mut bob_rx, "before the copy").await;
+
+    // Standby copies on: the first copy is made straight away.
+    let status = old
+        .admin()
+        .standby_setup(StandbySetupInput {
+            folder: standby_dir.to_string_lossy().into(),
+            interval_minutes: 15,
+            keep: 3,
+            password: "standby password 1".into(),
+        })
+        .await
+        .expect("standby setup");
+    assert!(status.enabled, "{status:?}");
+    assert!(status.last_error.is_none(), "{status:?}");
+    let copy = standby_dir.join(&status.copies.first().expect("a copy").file_name);
+    let fingerprint = old.tls().fingerprint;
+
+    // After the copy: carol is added (an MLS commit) and more is said.
+    let c_state = join(&carol, invite(&old, vec![ops]).await, &addr, "carol").await;
+    alice
+        .add_people(room.id, vec![user_id(&c_state)])
+        .await
+        .expect("add carol");
+    alice
+        .send(SendInput {
+            conversation: room.id,
+            body: "after the copy".into(),
+            reply_to: None,
+        })
+        .await
+        .expect("send");
+    wait_message(&mut bob_rx, "after the copy").await;
+
+    // The server computer fails.
+    old.stop().await;
+    let a_joins = log_count(&alice, "by external commit").await;
+    let b_joins = log_count(&bob, "by external commit").await;
+
+    // A new computer restores the copy and takes over at the same address.
+    let mut opts = EngineOptions::new(tmp.path().join("server-b"), Telemetry::detached());
+    opts.bind_override = Some(local);
+    opts.mdns = false;
+    let new = Engine::open(opts).expect("engine b");
+    assert!(new.needs_setup());
+    assert!(
+        new.restore_standby(&copy, "not the password")
+            .await
+            .is_err(),
+        "a wrong password must not restore"
+    );
+    assert!(new.needs_setup(), "a failed restore changes nothing");
+    let info = new
+        .restore_standby(&copy, "standby password 1")
+        .await
+        .expect("restore");
+    assert_eq!(info.server_name, "Head office");
+    assert_eq!(info.people, 2, "carol joined after the copy");
+    assert!(!new.needs_setup());
+    assert_eq!(
+        new.tls().fingerprint,
+        fingerprint,
+        "same identity, same pin"
+    );
+    assert!(new.server_info().restore.is_some());
+    assert!(
+        new.restore_standby(&copy, "standby password 1")
+            .await
+            .is_err(),
+        "a server that's set up can't be overwritten"
+    );
+    new.start().await.expect("start b");
+
+    // The apps reconnect, rewind and rejoin the chat.
+    alice.reconnect_now().await.ok();
+    bob.reconnect_now().await.ok();
+    wait_log(&alice, "server restored from a copy", 1).await;
+    wait_log(&bob, "server restored from a copy", 1).await;
+    wait_log(&alice, "by external commit", a_joins + 1).await;
+    wait_log(&bob, "by external commit", b_joins + 1).await;
+
+    let notice = alice
+        .messages(room.id, None, 50)
+        .await
+        .expect("messages")
+        .into_iter()
+        .any(|m| m.kind == MessageKind::System && m.body.contains("standby copy"));
+    assert!(notice, "alice is told the server was restored");
+
+    alice
+        .send(SendInput {
+            conversation: room.id,
+            body: "after the restore".into(),
+            reply_to: None,
+        })
+        .await
+        .expect("send");
+    let got = wait_message(&mut bob_rx, "after the restore").await;
+    assert_eq!(got.sender, Some(a_id));
+    bob.send(SendInput {
+        conversation: room.id,
+        body: "bob here, all good".into(),
+        reply_to: None,
+    })
+    .await
+    .expect("send");
+    let got = wait_message(&mut alice_rx, "bob here, all good").await;
+    assert_eq!(got.sender, Some(b_id));
+
+    new.stop().await;
 }

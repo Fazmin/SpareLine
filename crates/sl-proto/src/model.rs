@@ -18,6 +18,28 @@ pub struct ServerInfo {
     pub name: String,
     pub proto: u16,
     pub version: String,
+    /// Set once this server has been restored from a standby copy. Apps that were
+    /// connected before the restore use it to resynchronise their chats.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub restore: Option<RestoreMarker>,
+}
+
+/// Identifies one restore from a standby copy.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RestoreMarker {
+    /// New for every restore.
+    pub id: Uuid,
+    /// When the restored copy was taken.
+    pub copy_taken_at: Timestamp,
+}
+
+/// Where a conversation stood in the standby copy a server was restored from.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RestorePoint {
+    /// `last_seq` in the copy. Envelopes after it belong to the restored server.
+    pub seq: u64,
+    /// The MLS epoch in the copy.
+    pub epoch: u64,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -85,6 +107,11 @@ pub struct ConversationInfo {
     pub epoch: u64,
     /// Highest envelope sequence number in this conversation.
     pub last_seq: u64,
+    /// Present if the server was restored from a standby copy that held this
+    /// conversation. A device that got further than this before the restore rewinds
+    /// to it, and rejoins if its MLS epoch moved on.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub restored: Option<RestorePoint>,
     /// True when a direct chat's participants no longer share a group.
     pub read_only: bool,
     pub created_by: UserId,

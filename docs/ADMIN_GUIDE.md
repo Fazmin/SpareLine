@@ -7,7 +7,8 @@
 3. **Create groups** under Groups, for example one per team plus "Everyone". People can only find and message others who share a group with them.
 4. **Create invites** under Invites. Pick the groups, then create one invite per person. Codes are shown once. Copy each invite message, save them as CSV, or save printable cards.
 5. **Install SpareLine on staff computers.** Each person opens it, chooses **I have an invite** and pastes their invite. The app sits in the system tray and starts at sign-in.
-6. **Check readiness.** The Overview page shows "Devices ready (seen this week)". Aim for everyone.
+6. **Turn on standby copies.** Under **Settings → Standby copy**, choose a folder that would survive this computer failing, such as a USB drive or a shared folder on another computer, and set a standby password. Store the password with the recovery key. See [If the server computer fails](#if-the-server-computer-fails).
+7. **Check readiness.** The Overview page shows "Devices ready (seen this week)". Aim for everyone.
 
 ## During an outage
 
@@ -27,6 +28,22 @@
 
 If automatic discovery doesn't work (some networks block multicast), staff can type the address shown on the Overview page. Invite messages include it too.
 
+## If the server computer fails
+
+A standby copy lets another computer take over with the same identity, accounts and groups, so staff apps trust it and reconnect without new invites.
+
+**How copies work.** Once standby copies are on, SpareLine Server saves an encrypted copy of itself to your folder every 15 minutes, and again within about a minute of any change to people, groups or invites. Each copy holds the database, the server's certificate and settings, and opens only with the standby password. The last 4 are kept. Diagnostics shows a warning if copies stop, for example because the USB drive was unplugged.
+
+**Taking over:**
+
+1. **Keep the old computer switched off.** Two servers with the same identity would confuse staff apps.
+2. **Install SpareLine Server on another computer and open it.** On the setup screen, choose **Restore a standby copy**, pick the newest copy and enter the standby password. Without the panel: `SPARELINE_STANDBY_PASSWORD="…" spareline-server --headless --restore <copy>`.
+3. **Let staff reach it.** On the same network, staff apps find the new server by themselves. If staff type the server's address, give the new computer the old IP address (the restore screen shows it), or tell staff the new one.
+4. **Check what changed after the copy.** Anything done after the copy isn't in it. Check People for anyone you added, removed or signed out since then: a device you removed after the copy can connect again until you remove it again, and accounts created after the copy need new invites.
+5. **Unlock the panel with the old server's admin password.**
+
+**What staff notice.** Their apps reconnect, and any chat that had moved on since the copy shows "SpareLine Server was restored from a standby copy". Messages people already received stay on their computers. Messages sent shortly before the old server stopped may not reach people who were offline at the time.
+
 ## Setup codes
 
 **People → select someone → Create a setup code.** Use one for a new computer or a forgotten password. The code works once, expires in 24 hours, sets a new password and signs out the person's other devices. Their chats continue on the new device, but past messages stay on the old one.
@@ -35,8 +52,9 @@ If automatic discovery doesn't work (some networks block multicast), staff can t
 
 | | |
 |---|---|
-| Data folder | `%LOCALAPPDATA%\SpareLine\Server`. Contains `config.toml`, `spareline.db`, `tls\`, `logs\`, `backups\` and `reports\`. |
+| Data folder | `%LOCALAPPDATA%\SpareLine\Server`. Contains `config.toml`, `spareline.db`, `tls\`, `logs\`, `backups\`, `reports\` and, once standby copies are on, `standby.key`. |
 | Backups | Daily; the last 7 are kept. **Settings → Back up now** makes one on demand. |
+| Standby copies | In the folder you choose, as `spareline-standby-<date>-<time>-<id>.slstandby`. Every 15 minutes by default; the last 4 are kept. |
 | Port | 7443. Changing it under Settings needs a restart and a firewall update. |
 | Certificate | Self-signed, valid for 10 years. Clients pin its fingerprint, so don't regenerate it unless you must: every device would then need a setup code. |
 
@@ -45,6 +63,6 @@ If automatic discovery doesn't work (some networks block multicast), staff can t
 These are planned but not built yet:
 
 - Windows service mode. The tray app currently starts when an admin signs in to Windows; `--headless` can be run as a scheduled task instead.
-- Restoring a backup from the panel. For now, stop the server and copy the backup file over `spareline.db`.
+- Restoring a daily backup from the panel. For now, stop the server and copy the backup file over `spareline.db`. To move to another computer, use a standby copy instead.
 - Code-signed installers, macOS notarisation, and remote access through Headscale (phase 2).
 - A full-database encryption option (SQLCipher) for the client. Message bodies and titles are already encrypted at rest; encryption state is protected by OS account permissions.

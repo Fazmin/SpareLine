@@ -1102,6 +1102,63 @@ impl AdminApi {
         Ok(row)
     }
 
+    // ---- standby copies -----------------------------------------------------------
+
+    pub fn standby_status(&self) -> StandbyStatus {
+        crate::standby::status(self.e())
+    }
+
+    /// Turn on (or change) standby copies, then make the first copy straight away.
+    pub async fn standby_setup(&self, input: StandbySetupInput) -> AppResult<StandbyStatus> {
+        let folder = input.folder.trim().to_string();
+        if folder.is_empty() {
+            return api_detail(ErrorCode::BadRequest, "choose a folder for standby copies");
+        }
+        let path = PathBuf::from(&folder);
+        if !path.is_dir() {
+            return api_detail(
+                ErrorCode::BadRequest,
+                "that folder doesn't exist or can't be reached",
+            );
+        }
+        let probe = path.join(".spareline-write-test");
+        if let Err(e) = std::fs::write(&probe, b"ok") {
+            return api_detail(
+                ErrorCode::BadRequest,
+                format!("SpareLine Server can't save files in that folder ({e})"),
+            );
+        }
+        let _ = std::fs::remove_file(&probe);
+        if !input.password.is_empty() {
+            crate::standby::set_password(self.e().paths(), input.password).await?;
+        } else if !crate::standby::has_password(self.e().paths()) {
+            return api_detail(
+                ErrorCode::WeakPassword,
+                "choose a standby password. You'll need it to restore a copy",
+            );
+        }
+        let f = folder.clone();
+        self.e().update_config(|c| {
+            c.standby_folder = f;
+            c.standby_interval_minutes = input.interval_minutes.clamp(5, 24 * 60);
+            c.standby_keep = input.keep.clamp(1, 50);
+        })?;
+        self.e().audit("standby.setup", "", folder);
+        // A failure here is shown in the status rather than failing the setup.
+        let _ = crate::standby::take_copy(self.e()).await;
+        Ok(self.standby_status())
+    }
+
+    pub async fn standby_copy_now(&self) -> AppResult<StandbyCopyRow> {
+        crate::standby::take_copy(self.e()).await
+    }
+
+    pub fn standby_turn_off(&self) -> AppResult<()> {
+        self.e().update_config(|c| c.standby_folder.clear())?;
+        self.e().audit("standby.off", "", "");
+        Ok(())
+    }
+
     pub async fn change_admin_password(&self, current: String, new: String) -> AppResult<()> {
         if !self.e().verify_admin(&current).await {
             return api(ErrorCode::InvalidCredentials);

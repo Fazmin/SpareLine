@@ -16,7 +16,7 @@ use rusqlite::{Connection, OptionalExtension, TransactionBehavior, params};
 use sl_proto::wire::{Event, PendingWelcome, Response, ServerFrame, SyncBatch};
 use sl_proto::{
     Bytes, ClaimedKeyPackage, ConversationId, ConversationInfo, ConversationKind, DeviceId,
-    DeviceRef, Envelope, EnvelopeKind, ErrorCode, GroupId, UserId,
+    DeviceRef, Envelope, EnvelopeKind, ErrorCode, GroupId, RestorePoint, UserId,
 };
 use uuid::Uuid;
 
@@ -73,11 +73,12 @@ struct ConvRow {
     last_seq: u64,
     created_by: UserId,
     created_at: i64,
+    restored: Option<RestorePoint>,
 }
 
 fn conv_row(c: &Connection, id: ConversationId) -> AppResult<Option<ConvRow>> {
     Ok(c.query_row(
-        "SELECT kind, scope_group, mls_group_id, epoch, last_seq, created_by, created_at FROM conversations WHERE id = ?1",
+        "SELECT kind, scope_group, mls_group_id, epoch, last_seq, created_by, created_at, restore_seq, restore_epoch FROM conversations WHERE id = ?1",
         [id],
         |r| {
             Ok(ConvRow {
@@ -88,6 +89,13 @@ fn conv_row(c: &Connection, id: ConversationId) -> AppResult<Option<ConvRow>> {
                 last_seq: r.get::<_, i64>(4)? as u64,
                 created_by: r.get(5)?,
                 created_at: r.get(6)?,
+                restored: match (r.get::<_, Option<i64>>(7)?, r.get::<_, Option<i64>>(8)?) {
+                    (Some(seq), Some(epoch)) => Some(RestorePoint {
+                        seq: seq as u64,
+                        epoch: epoch as u64,
+                    }),
+                    _ => None,
+                },
             })
         },
     )
@@ -206,6 +214,7 @@ pub(crate) fn conversation_info(
         mls_group_id: Bytes(row.mls_group_id),
         epoch: row.epoch,
         last_seq: row.last_seq,
+        restored: row.restored,
         created_by: row.created_by,
         created_at: row.created_at,
     }))

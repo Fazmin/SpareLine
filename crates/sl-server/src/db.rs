@@ -26,7 +26,10 @@ struct DbInner {
 }
 
 fn migrations() -> Migrations<'static> {
-    Migrations::new(vec![M::up(include_str!("schema/001_init.sql"))])
+    Migrations::new(vec![
+        M::up(include_str!("schema/001_init.sql")),
+        M::up(include_str!("schema/002_standby.sql")),
+    ])
 }
 
 fn open_conn(path: &Path) -> rusqlite::Result<Connection> {
@@ -112,6 +115,21 @@ impl Db {
         std::fs::metadata(self.inner.path.with_extension("db-wal"))
             .map(|m| m.len())
             .unwrap_or(0)
+    }
+
+    /// Replace the whole database with `src` (a standby copy), in place, so open
+    /// connections stay valid. Brings the copy's schema up to date afterwards.
+    pub fn replace_with(&self, src: &Path) -> AppResult<()> {
+        let from = Connection::open_with_flags(src, rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY)?;
+        let mut to = self.inner.writer.lock();
+        {
+            let b = rusqlite::backup::Backup::new(&from, &mut to)?;
+            b.run_to_completion(512, std::time::Duration::ZERO, None)?;
+        }
+        migrations()
+            .to_latest(&mut to)
+            .map_err(|e| AppError::Internal(anyhow::anyhow!("database upgrade: {e}")))?;
+        Ok(())
     }
 
     /// Consistent online backup via `VACUUM INTO`.

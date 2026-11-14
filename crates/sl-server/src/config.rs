@@ -22,6 +22,11 @@ pub struct Config {
     pub backup_interval_hours: u32,
     /// Sessions expire after this many days without use.
     pub session_idle_days: u32,
+    /// Folder for standby copies (a USB drive or a share on another computer).
+    /// Empty turns standby copies off.
+    pub standby_folder: String,
+    pub standby_interval_minutes: u32,
+    pub standby_keep: u32,
 }
 
 impl Default for Config {
@@ -38,6 +43,9 @@ impl Default for Config {
             backup_keep: 7,
             backup_interval_hours: 24,
             session_idle_days: 30,
+            standby_folder: String::new(),
+            standby_interval_minutes: 15,
+            standby_keep: 4,
         }
     }
 }
@@ -84,6 +92,10 @@ pub struct Paths {
     pub logs: PathBuf,
     pub backups: PathBuf,
     pub reports: PathBuf,
+    /// Key for standby copies, derived from the standby password.
+    pub standby_key: PathBuf,
+    /// Scratch space for taking and restoring standby copies.
+    pub standby_tmp: PathBuf,
 }
 
 impl Paths {
@@ -99,6 +111,8 @@ impl Paths {
             logs: root.join("logs"),
             backups: root.join("backups"),
             reports: root.join("reports"),
+            standby_key: root.join("standby.key"),
+            standby_tmp: root.join("standby-tmp"),
             root,
         }
     }

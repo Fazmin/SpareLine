@@ -199,6 +199,9 @@ pub async fn run_checks(engine: &Engine) -> Vec<HealthCheck> {
         ));
     }
 
+    // Standby copies.
+    out.push(crate::standby::health(engine));
+
     // Backups.
     let backups = crate::admin::list_backup_files(&engine.paths().backups);
     let interval_ms = i64::from(cfg.backup_interval_hours.max(1)) * 3_600_000;

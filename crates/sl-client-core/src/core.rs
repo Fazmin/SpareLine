@@ -151,7 +151,12 @@ pub struct Core {
         mpsc::UnboundedReceiver<Internal>,
     )>,
     key_packages_remaining: u32,
+    /// The server's restore marker, if it was restored from a standby copy.
+    server_restore: Option<RestoreMarker>,
 }
+
+/// The restore marker this device has already caught up with.
+const KV_RESTORE_SEEN: &str = "server_restore_seen";
 
 impl Core {
     pub(crate) fn open(
@@ -217,6 +222,7 @@ impl Core {
             internal_tx,
             rx: Some((incoming_rx, internal_rx)),
             key_packages_remaining: 0,
+            server_restore: None,
         };
         if core.phase() == Phase::Ready {
             core.next_dial = Some(Instant::now());
@@ -419,6 +425,7 @@ impl Core {
         self.me = Some(auth.user.clone());
         self.broadcasts = auth.broadcasts.clone();
         self.key_packages_remaining = auth.key_packages_remaining;
+        self.server_restore = auth.server.restore;
         if let Some(p) = self.profile.as_mut() {
             p.remember_address(address);
             p.server_name = auth.server.name.clone();
@@ -443,6 +450,7 @@ impl Core {
         self.refresh_directory().await?;
         // Conversations: the server's list is authoritative for membership.
         if let Response::Conversations(list) = self.rpc(Request::Conversations).await? {
+            self.apply_restore(&list);
             let ids: HashSet<ConversationId> = list.iter().map(|c| c.id).collect();
             for info in &list {
                 self.store.upsert_conversation(info)?;
@@ -482,6 +490,75 @@ impl Core {
             self.emit_conversation(c.id);
         }
         Ok(())
+    }
+
+    /// The server was restored from a standby copy since this device last saw it.
+    /// Anything after the copy in our local view is history the restored server no
+    /// longer has. Rewind each chat to where the copy left it, so the restored server's
+    /// new envelopes, which reuse those sequence numbers, aren't skipped as already
+    /// seen. If our MLS group moved past the copy's epoch, the restored server can't
+    /// follow it, so drop the group; the caller rejoins by external commit.
+    fn apply_restore(&mut self, list: &[ConversationInfo]) {
+        let Some(marker) = self.server_restore else {
+            return;
+        };
+        let seen = marker.id.to_string();
+        if self.store.kv_get(KV_RESTORE_SEEN).as_deref() == Some(seen.as_str()) {
+            return;
+        }
+        for info in list {
+            let Some(point) = info.restored else {
+                continue;
+            };
+            let Some(c) = self.store.conversation(info.id) else {
+                continue;
+            };
+            if c.wm <= point.seq {
+                continue;
+            }
+            let _ = self.store.rewind(info.id, point.seq);
+            self.seqs.remove(&info.id);
+            if self
+                .mls
+                .epoch(&c.mls_group_id)
+                .is_some_and(|e| e > point.epoch)
+            {
+                self.mls.delete_group(&c.mls_group_id);
+            }
+            self.diag.log(format!(
+                "server restored from a copy: rewound {} to {}",
+                info.id, point.seq
+            ));
+            self.system_message(
+                info.id,
+                "SpareLine Server was restored from a standby copy. Messages sent shortly before it stopped may not have reached everyone.".into(),
+                sl_proto::now_ms(),
+            );
+        }
+        let _ = self.store.kv_set(KV_RESTORE_SEEN, &seen);
+    }
+
+    /// The server said our epoch is stale. Usually we're behind and catch up. If the
+    /// server is behind us, it was restored from an earlier copy and can't follow our
+    /// group state, so rejoin from what it has.
+    async fn on_stale_epoch(
+        &mut self,
+        conv: ConversationId,
+        server_epoch: Option<u64>,
+    ) -> ClientResult<()> {
+        if let Some(se) = server_epoch
+            && let Some(c) = self.store.conversation(conv)
+            && self
+                .mls
+                .epoch(&c.mls_group_id)
+                .is_some_and(|mine| mine > se)
+        {
+            self.diag
+                .log(format!("server is behind in {conv}; rejoining"));
+            self.mls.delete_group(&c.mls_group_id);
+            return self.external_join(conv).await;
+        }
+        self.catch_up(conv).await
     }
 
     async fn upload_key_packages(&mut self) -> ClientResult<()> {
@@ -1066,7 +1143,7 @@ impl Core {
             match self.commit(conv, pc, vec![], devices, vec![]).await {
                 Ok(()) => return Ok(()),
                 Err(ClientError::Api(e)) if e.code == ErrorCode::StaleEpoch => {
-                    self.catch_up(conv).await?;
+                    self.on_stale_epoch(conv, e.epoch).await?;
                 }
                 Err(e) => return Err(e),
             }
@@ -1190,7 +1267,7 @@ impl Core {
                 }
                 Ok(_) => return Err(ClientError::Internal("unexpected response".into())),
                 Err(ClientError::Api(e)) if e.code == ErrorCode::StaleEpoch => {
-                    self.catch_up(conv).await?;
+                    self.on_stale_epoch(conv, e.epoch).await?;
                 }
                 Err(e) => return Err(e),
             }
@@ -2199,7 +2276,7 @@ impl Core {
             match self.commit(conv, pc, new.clone(), vec![], devices).await {
                 Ok(()) => return Ok(()),
                 Err(ClientError::Api(e)) if e.code == ErrorCode::StaleEpoch => {
-                    self.catch_up(conv).await?;
+                    self.on_stale_epoch(conv, e.epoch).await?;
                 }
                 Err(e) => return Err(e),
             }

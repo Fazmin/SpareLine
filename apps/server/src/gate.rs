@@ -1,10 +1,10 @@
-//! First-run setup and the lock screen.
+//! First-run setup (or restoring a standby copy) and the lock screen.
 
 use leptos::prelude::*;
 use leptos::task::spawn_local;
 use serde::Serialize;
-use sl_proto::panel::{PanelState, SetupInput, SetupResult};
-use sl_ui::{Icon, Spinner, ipc, toasts};
+use sl_proto::panel::{PanelState, RestoreResult, SetupInput, SetupResult, StandbyInfo};
+use sl_ui::{Icon, Spinner, format, ipc, toasts};
 
 use crate::ctx::{call0, ctx};
 
@@ -39,6 +39,7 @@ pub fn Setup() -> impl IntoView {
     let error = RwSignal::new(None::<String>);
     let key = RwSignal::new(None::<String>);
     let stored = RwSignal::new(false);
+    let restoring = RwSignal::new(false);
     let submit = move |e: leptos::ev::SubmitEvent| {
         e.prevent_default();
         error.set(None);
@@ -100,11 +101,19 @@ pub fn Setup() -> impl IntoView {
     };
     view! {
         <div class="gate">
-            {hero(
-                "Set up your backup chat server.",
-                "This computer will run SpareLine for your organisation. Staff connect to it over the office network, and it keeps working when cloud services are down. Messages are end-to-end encrypted: neither this server nor you as admin can read them.",
-            )}
+            {move || if restoring.get() {
+                hero(
+                    "Take over from a server that stopped working.",
+                    "Restore the old server's standby copy on this computer. It keeps the same identity, accounts and groups, so staff apps reconnect without new invites.",
+                )
+            } else {
+                hero(
+                    "Set up your backup chat server.",
+                    "This computer will run SpareLine for your organisation. Staff connect to it over the office network, and it keeps working when cloud services are down. Messages are end-to-end encrypted: neither this server nor you as admin can read them.",
+                )
+            }}
             <section class="gate-form" aria-label="Setup">
+                <Show when=move || !restoring.get() fallback=move || view! { <RestoreForm back=Callback::new(move |()| restoring.set(false))/> }>
                 <Show
                     when=move || key.get().is_none()
                     fallback=move || view! {
@@ -147,10 +156,161 @@ pub fn Setup() -> impl IntoView {
                         <button type="submit" class="btn wide" disabled=move || busy.get()>
                             {move || if busy.get() { view! { <Spinner/> "Setting up…" }.into_any() } else { "Set up and start the server".into_any() }}
                         </button>
+                        <div class="gate-alt">
+                            <span class="small muted">"Replacing a server that stopped working?"</span>
+                            <button type="button" class="btn ghost small" on:click=move |_| restoring.set(true)>"Restore a standby copy"</button>
+                        </div>
                     </form>
+                </Show>
                 </Show>
             </section>
         </div>
+    }
+}
+
+/// Take over from a server that stopped working, using its standby copy.
+#[component]
+fn RestoreForm(back: Callback<()>) -> impl IntoView {
+    let path = RwSignal::new(String::new());
+    let pw = RwSignal::new(String::new());
+    let info = RwSignal::new(None::<StandbyInfo>);
+    let done = RwSignal::new(None::<RestoreResult>);
+    let busy = RwSignal::new(false);
+    let error = RwSignal::new(None::<String>);
+    #[derive(Serialize)]
+    struct A {
+        path: String,
+        password: String,
+    }
+    let args = move || A {
+        path: path.get_untracked().trim().to_string(),
+        password: pw.get_untracked(),
+    };
+    let choose = move |_| {
+        spawn_local(async move {
+            if let Ok(Some(f)) = ipc::invoke0::<Option<String>>("pick_standby_copy").await {
+                path.set(f);
+            }
+        });
+    };
+    let check = move |e: leptos::ev::SubmitEvent| {
+        e.prevent_default();
+        error.set(None);
+        if path.get_untracked().trim().is_empty() {
+            error.set(Some("Choose the standby copy to restore.".into()));
+            return;
+        }
+        if pw.get_untracked().is_empty() {
+            error.set(Some("Enter the standby password.".into()));
+            return;
+        }
+        busy.set(true);
+        let a = args();
+        spawn_local(async move {
+            match ipc::invoke::<StandbyInfo>("standby_inspect", a).await {
+                Ok(i) => info.set(Some(i)),
+                Err(e) => error.set(Some(e.message)),
+            }
+            busy.set(false);
+        });
+    };
+    let restore = move |_| {
+        error.set(None);
+        busy.set(true);
+        let a = args();
+        spawn_local(async move {
+            match ipc::invoke::<RestoreResult>("standby_restore", a).await {
+                Ok(r) => done.set(Some(r)),
+                Err(e) => error.set(Some(e.message)),
+            }
+            busy.set(false);
+        });
+    };
+    let error_box = move || {
+        error.get().map(|m| {
+            view! { <div class="notice fail" role="alert"><Icon name="alert"/><span>{m}</span></div> }
+        })
+    };
+    move || {
+        if let Some(r) = done.get() {
+            let taken = format::full(r.info.taken_at);
+            let old = r.info.addresses.join(", ");
+            let new = r.addresses.join(", ");
+            let reach = if old.is_empty() || old == new {
+                " when this computer is on the same network.".to_string()
+            } else {
+                format!(
+                    " when this computer is on the same network. Staff who type the server's address need the old one, {old}: give this computer that address, or tell them the new one, {new}."
+                )
+            };
+            view! {
+                <div class="stack">
+                    <h2>"This computer has taken over"</h2>
+                    <p class="muted">{format!("{} is running here, from the copy made {taken}.", r.info.server_name)}</p>
+                    <ol class="next-steps">
+                        <li><b>"Keep the old server switched off."</b>" If it came back, two servers with the same identity would confuse staff apps."</li>
+                        <li><b>"Staff apps reconnect by themselves"</b>{reach}</li>
+                        <li><b>"Check what changed after the copy."</b>{format!(" Anything done after {taken} isn't in it. In People, check anyone you added, removed or signed out since then.")}</li>
+                        <li><b>"Use the old server's admin password"</b>" to unlock this panel."</li>
+                    </ol>
+                    <button class="btn wide" on:click=move |_| spawn_local(refresh())>"Open the control panel"</button>
+                </div>
+            }
+            .into_any()
+        } else if let Some(i) = info.get() {
+            let addresses = if i.addresses.is_empty() {
+                "Not recorded".to_string()
+            } else {
+                i.addresses.join(", ")
+            };
+            view! {
+                <div class="stack">
+                    <h2>"Restore this copy?"</h2>
+                    <table class="table kv">
+                        <caption class="sr-only">"About this copy"</caption>
+                        <tbody>
+                            <tr><th scope="row">"Server"</th><td>{i.server_name.clone()}</td></tr>
+                            <tr><th scope="row">"Copy made"</th><td>{format!("{} ({})", format::full(i.taken_at), format::ago(i.taken_at))}</td></tr>
+                            <tr><th scope="row">"People"</th><td>{i.people}</td></tr>
+                            <tr><th scope="row">"Old address"</th><td>{addresses}</td></tr>
+                            <tr><th scope="row">"Fingerprint"</th><td class="mono small" style="white-space:normal;overflow-wrap:anywhere">{i.fingerprint.clone()}</td></tr>
+                        </tbody>
+                    </table>
+                    <p class="muted small">"This computer takes over the old server's identity, settings and accounts, so staff apps trust it. Anything done after the copy was made isn't included."</p>
+                    {error_box}
+                    <button class="btn wide" disabled=move || busy.get() on:click=restore>
+                        {move || if busy.get() { view! { <Spinner/> "Restoring…" }.into_any() } else { "Restore and start the server".into_any() }}
+                    </button>
+                    <button type="button" class="btn ghost" on:click=move |_| { info.set(None); error.set(None); }>"Choose a different copy"</button>
+                </div>
+            }
+            .into_any()
+        } else {
+            view! {
+                <form class="stack" on:submit=check novalidate>
+                    <h2>"Restore a standby copy"</h2>
+                    <p class="muted">"Use this when this computer is replacing a SpareLine Server that stopped working. It takes over with the same identity, so staff apps reconnect by themselves."</p>
+                    <div class="field">
+                        <label for="r-file">"Standby copy"</label>
+                        <div class="row">
+                            <input id="r-file" class="input grow" placeholder="spareline-standby-….slstandby" prop:value=move || path.get() on:input=move |e| path.set(event_target_value(&e))/>
+                            <button type="button" class="btn quiet" on:click=choose>"Choose…"</button>
+                        </div>
+                        <span class="hint">"From the old server's standby folder. Choose the newest copy."</span>
+                    </div>
+                    <div class="field">
+                        <label for="r-pw">"Standby password"</label>
+                        <input id="r-pw" class="input" type="password" autocomplete="current-password" prop:value=move || pw.get() on:input=move |e| pw.set(event_target_value(&e))/>
+                    </div>
+                    {error_box}
+                    <button type="submit" class="btn wide" disabled=move || busy.get()>
+                        {move || if busy.get() { view! { <Spinner/> "Checking…" }.into_any() } else { "Check the copy".into_any() }}
+                    </button>
+                    <button type="button" class="btn ghost" on:click=move |_| back.run(())>"Back to setup"</button>
+                </form>
+            }
+            .into_any()
+        }
     }
 }
 

@@ -74,7 +74,7 @@ hkdf = "0.12"
 subtle = "2"
 
 # storage
-rusqlite = { version = "0.37", features = ["bundled", "uuid"] }
+rusqlite = { version = "0.37", features = ["bundled", "uuid", "backup"] }
 rusqlite_migration = "2"
 
 # telemetry
