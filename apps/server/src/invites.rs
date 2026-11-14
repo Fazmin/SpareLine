@@ -151,6 +151,7 @@ pub fn InvitesPage() -> impl IntoView {
     };
     view! {
         <div class="page-head">
+            <span class="page-icon" aria-hidden="true"><Icon name="invite"/></span>
             <div class="grow">
                 <h1>"Invites"</h1>
                 <p class="lede">"Each invite is a single-use code. Hand them out before you need them, so everyone is ready before the next outage. Codes are shown only once; the server keeps a fingerprint of each, not the code itself."</p>

@@ -1,4 +1,67 @@
-/* SpareLine Server control panel. Tokens and components come from sl.css. */
+/* SpareLine Server control panel. Tokens and components come from sl.css.
+ *
+ * "Status sign": the server's state is one solid sign (green running, amber problems,
+ * red stopped) that always pairs colour with an icon and words. Everything around it is
+ * quiet: white or near-black ground, soft green-grey tiles, ink-filled primary actions
+ * and compact tables. These overrides apply to the server panel only; the chat client
+ * keeps the shared palette.
+ */
+
+:root {
+  --paper: #ffffff;
+  --surface: #ffffff;
+  --surface-2: #f1f4f2;
+  --sunken: #e4eae6;
+  --hover: #eaefec;
+  --ink: #0f1d16;
+  --ink-2: #2f3e36;
+  --muted: #4e5d55;
+  --rule: #d5ddd8;
+  --rule-strong: #a3b0a9;
+  --signal: #0b6e3f;
+  --signal-ink: #ffffff;
+  --signal-tint: #ddf0e5;
+  --signal-text: #0a5c35;
+  --warn: #8a4b00;
+  --warn-tint: #fbebd3;
+  --fail: #b3261e;
+  --fail-tint: #fbe4e1;
+  --focus: #0f1d16;
+  --r-sm: 8px;
+  --ctl-h: 2.25rem;
+  --row-y: 0.45rem;
+
+  /* The sign colours stay the same in both themes; white text passes on all three. */
+  --sign-ok: #0b6e3f;
+  --sign-warn: #8f5300;
+  --sign-fail: #b3261e;
+  --sign-ink: #ffffff;
+  --board: #1e2a24;
+}
+
+:root[data-theme="dark"] {
+  --paper: #0f1513;
+  --surface: #141c19;
+  --surface-2: #18211d;
+  --sunken: #0b100e;
+  --hover: #212c27;
+  --ink: #e7eeea;
+  --ink-2: #c4d0ca;
+  --muted: #9dada4;
+  --rule: #2a3631;
+  --rule-strong: #4a5a52;
+  --signal: #5bc992;
+  --signal-ink: #0b1a14;
+  --signal-tint: #15352a;
+  --signal-text: #6fd8ad;
+  --warn: #f0b65a;
+  --warn-tint: #372912;
+  --fail: #ff8a80;
+  --fail-tint: #3a1b19;
+  --focus: #e7eeea;
+  --focus-halo: #0f1513;
+  --board: #26352e;
+}
 
 .avatar[data-hue="0"] { --av-bg: #dce7f5; --av-fg: #1d3d6b; }
 .avatar[data-hue="1"] { --av-bg: #e0efe6; --av-fg: #1c5a3d; }
@@ -11,193 +74,450 @@
 :root[data-theme="dark"] .avatar { --av-bg: #24302d; --av-fg: #d5ded9; }
 :root[data-contrast="high"] .avatar { --av-bg: var(--surface); --av-fg: var(--ink); box-shadow: inset 0 0 0 2px var(--ink); }
 
+/* ---------------------------------------------------------------------------------- */
+/* Controls: a little bolder than the shared defaults                                  */
+/* ---------------------------------------------------------------------------------- */
+
+.btn {
+  font-weight: 750;
+}
+.btn.quiet {
+  border-color: var(--rule-strong);
+}
+.tag {
+  font-weight: 750;
+}
+.seg label:has(input:checked) {
+  background: var(--ink);
+  color: var(--paper);
+  box-shadow: none;
+}
+
+/* ---------------------------------------------------------------------------------- */
+/* Layout: header with the status chip, tabs, scrolling page                           */
+/* ---------------------------------------------------------------------------------- */
+
 .panel-app {
-  display: grid;
-  grid-template-columns: 15.5rem minmax(0, 1fr);
+  display: flex;
+  flex-direction: column;
   height: 100vh;
   padding-top: 3px;
 }
-.nav {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-height: 0;
-  padding: var(--s4) var(--s3);
-  background: var(--surface-2);
-  border-right: 1px solid var(--rule);
+.topbar {
+  flex: none;
+  padding: var(--s3) var(--s5) 0;
+  background: var(--paper);
+  border-bottom: 2px solid var(--rule);
 }
-.nav .brand {
+.topbar-row,
+.tabs {
+  max-width: calc(80rem - 2 * var(--s5));
+  margin-inline: auto;
+}
+.topbar-row {
   display: flex;
   align-items: center;
-  gap: var(--s3);
-  padding: var(--s1) var(--s3) var(--s4);
+  flex-wrap: wrap;
+  gap: var(--s2) var(--s3);
+}
+.brand {
+  display: flex;
+  align-items: baseline;
+  gap: var(--s2);
+  min-width: 0;
   font-weight: 800;
   font-size: var(--t-lg);
   letter-spacing: -0.01em;
 }
-.nav .brand small {
-  display: block;
+.brand .mark {
+  align-self: center;
+}
+.brand small {
+  max-width: 14rem;
+  font-size: var(--t-sm);
   font-weight: 600;
-  font-size: var(--t-xs);
   color: var(--muted);
   letter-spacing: 0;
 }
-.nav-btn {
-  display: flex;
+.status-chip {
+  display: inline-flex;
   align-items: center;
-  gap: var(--s3);
-  width: 100%;
-  padding: 0.55rem var(--s3);
+  gap: var(--s2);
+  min-height: 2rem;
+  padding: 0 var(--s3);
   border: 0;
-  border-radius: var(--r-md);
-  background: transparent;
-  color: var(--ink-2);
-  font-weight: 600;
-  text-align: left;
+  border-radius: var(--r-pill);
+  background: var(--sign-ok);
+  color: var(--sign-ink);
+  font-size: var(--t-sm);
+  font-weight: 800;
   cursor: pointer;
 }
-.nav-btn:hover {
-  background: var(--hover);
-  color: var(--ink);
+.status-chip[data-s="degraded"] {
+  background: var(--sign-warn);
 }
-.nav-btn[aria-current="page"] {
-  background: var(--surface);
-  color: var(--ink);
-  box-shadow: inset 3px 0 0 var(--signal), var(--shadow-sm);
+.status-chip[data-s="stopped"] {
+  background: var(--sign-fail);
 }
-.nav-btn .tag {
-  margin-left: auto;
+.status-chip .icon {
+  stroke-width: 2.75;
 }
-.nav-foot {
-  margin-top: auto;
-  padding: var(--s3);
-  border-top: 1px solid var(--rule);
+.status-chip .chip-detail {
+  font-weight: 600;
+}
+:root[data-contrast="high"] .status-chip {
+  box-shadow: 0 0 0 2px var(--ink);
+}
+.tabs {
   display: flex;
-  flex-direction: column;
+  flex-wrap: wrap;
+  gap: var(--s1);
+  padding: var(--s3) 0;
+}
+.tab {
+  display: inline-flex;
+  align-items: center;
   gap: var(--s2);
+  min-height: 2.25rem;
+  padding: 0 var(--s3);
+  border: 0;
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+  color: var(--ink);
+  font-size: var(--t-sm);
+  font-weight: 700;
+  cursor: pointer;
+}
+.tab:hover {
+  background: var(--sunken);
+}
+.tab[aria-current="page"] {
+  background: var(--ink);
+  color: var(--paper);
+}
+:root[data-contrast="high"] .tab {
+  box-shadow: inset 0 0 0 1px var(--ink);
 }
 
 .main {
+  flex: 1;
   min-height: 0;
   overflow: auto;
   background: var(--paper);
 }
 .main-inner {
-  max-width: 76rem;
+  max-width: 80rem;
   margin: 0 auto;
-  padding: var(--s6) var(--s6) var(--s7);
+  padding: var(--s5) var(--s5) var(--s7);
 }
+.main-inner > .notice {
+  margin-top: var(--s4);
+}
+
+/* ---------------------------------------------------------------------------------- */
+/* Pages                                                                               */
+/* ---------------------------------------------------------------------------------- */
+
 .page-head {
   display: flex;
-  align-items: flex-end;
-  gap: var(--s4);
+  align-items: center;
+  gap: var(--s3) var(--s4);
   flex-wrap: wrap;
   margin-bottom: var(--s5);
 }
+.page-head .grow {
+  min-width: min(100%, 18rem);
+}
 .page-head h1 {
-  flex: 1;
+  font-size: var(--t-2xl);
+  font-weight: 800;
+  letter-spacing: -0.015em;
+}
+.page-icon {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: var(--r-md);
+  background: var(--surface-2);
+}
+.page-icon .icon {
+  width: 1.4rem;
+  height: 1.4rem;
 }
 .lede {
+  max-width: 72ch;
+  margin-top: 2px;
   color: var(--muted);
-  max-width: 64ch;
-  margin-top: var(--s2);
 }
 .section {
-  margin-top: var(--s6);
+  margin-top: var(--s5);
 }
 .section-title {
   display: flex;
   align-items: center;
   gap: var(--s3);
-  margin-bottom: var(--s3);
+  min-height: 2rem;
+  margin-bottom: var(--s2);
 }
 .section-title h2 {
   flex: 1;
   font-size: var(--t-lg);
+  font-weight: 800;
 }
 .box {
-  padding: var(--s5);
-  border: 1px solid var(--rule);
+  padding: var(--s4) var(--s5);
+  border: 2px solid var(--rule);
   border-radius: var(--r-lg);
   background: var(--surface);
 }
 .box.flush {
   padding: 0;
-  overflow: hidden;
+  overflow: auto;
+}
+
+/* Tables: compact rows, a tinted header, an ink bar on the selected row. */
+.table th {
+  padding: var(--s2) var(--s3);
+  background: var(--surface-2);
+  border-bottom: 2px solid var(--rule);
+  color: var(--ink-2);
+  font-size: var(--t-xs);
+  font-weight: 750;
+}
+.table tbody tr:last-child td {
+  border-bottom: 0;
+}
+.table tr[aria-selected="true"] td {
+  background: var(--surface-2);
+}
+.table tr[aria-selected="true"] td:first-child {
+  box-shadow: inset 4px 0 0 var(--ink);
 }
 .box.flush .table td:first-child,
 .box.flush .table th:first-child {
-  padding-left: var(--s5);
+  padding-left: var(--s4);
+}
+.box.flush .table td:last-child,
+.box.flush .table th:last-child {
+  padding-right: var(--s4);
 }
 
-/* Overview */
-.status-head {
+/* Key-value table ("This computer"). */
+.table.kv th[scope="row"] {
+  width: 40%;
+  padding: var(--row-y) var(--s3);
+  background: none;
+  border-bottom: 1px solid var(--rule);
+  color: var(--muted);
+  font-size: var(--t-sm);
+  font-weight: 600;
+}
+.table.kv tbody tr:last-child th {
+  border-bottom: 0;
+}
+.table.kv td {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.table.kv .meter-cell {
+  width: 28%;
+  min-width: 5rem;
+}
+
+/* ---------------------------------------------------------------------------------- */
+/* Overview: the status sign and the tiles                                             */
+/* ---------------------------------------------------------------------------------- */
+
+.ov-top {
+  display: grid;
+  grid-template-columns: minmax(20rem, 5fr) minmax(0, 7fr);
+  gap: var(--s4);
+  align-items: stretch;
+}
+.sign {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s4);
+  padding: var(--s5);
+  border-radius: 18px;
+  background: var(--sign-ok);
+  color: var(--sign-ink);
+}
+.sign[data-s="degraded"] {
+  background: var(--sign-warn);
+}
+.sign[data-s="stopped"] {
+  background: var(--sign-fail);
+}
+:root[data-contrast="high"] .sign {
+  box-shadow: 0 0 0 3px var(--ink);
+}
+.sign-top {
   display: flex;
   align-items: flex-start;
   gap: var(--s4);
 }
-.status-head h1 {
+.sign-icon {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 3rem;
+  height: 3rem;
+  border: 3px solid currentColor;
+  border-radius: 50%;
+}
+.sign-icon .icon {
+  width: 1.6rem;
+  height: 1.6rem;
+  stroke-width: 2.75;
+}
+.sign h1 {
   font-size: var(--t-3xl);
   line-height: 1.05;
+  font-weight: 800;
   letter-spacing: -0.02em;
-  max-width: 22ch;
 }
-.status-lamp {
-  flex: none;
-  width: 1rem;
-  height: 1rem;
-  margin-top: 0.85rem;
-  border-radius: 50%;
-  background: var(--signal);
-  box-shadow: 0 0 0 5px var(--signal-tint);
+.sign-line {
+  margin-top: var(--s1);
+  font-size: var(--t-lg);
+  font-weight: 700;
 }
-.status-lamp[data-s="degraded"] {
-  background: var(--warn);
-  box-shadow: 0 0 0 5px var(--warn-tint);
+.sign-sub {
+  font-size: var(--t-sm);
 }
-.status-lamp[data-s="stopped"] {
-  background: var(--fail);
-  box-shadow: 0 0 0 5px var(--fail-tint);
+.sign-reach {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: auto;
+  padding-top: var(--s3);
+  border-top: 1px solid rgb(255 255 255 / 0.4);
 }
-.reach {
+.sign-label {
+  font-size: var(--t-sm);
+  font-weight: 600;
+}
+.sign-addr {
+  font-size: var(--t-xl);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.sign-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--s2) var(--s5);
-  margin-top: var(--s4);
-  color: var(--ink-2);
+  align-items: center;
+  gap: var(--s2) var(--s3);
+  margin-top: var(--s2);
 }
-.reach .mono {
-  font-size: var(--t-md);
+.sign .sign-btn {
+  border-color: #ffffff;
+  background: #ffffff;
+  color: var(--sign-ok);
 }
-.strip {
+.sign[data-s="degraded"] .sign-btn {
+  color: var(--sign-warn);
+}
+.sign[data-s="stopped"] .sign-btn {
+  color: var(--sign-fail);
+}
+.sign .sign-btn:hover {
+  background: #e8efeb;
+  border-color: #e8efeb;
+}
+.sign-fp {
+  font-size: var(--t-xs);
+}
+.sign :focus-visible {
+  outline-color: #ffffff;
+  box-shadow: 0 0 0 4px rgb(0 0 0 / 0.35);
+}
+
+.tiles {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  margin-top: var(--s5);
-  border: 1px solid var(--rule);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--s3);
+}
+.tile {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  min-height: 7.5rem;
+  padding: var(--s3) var(--s4);
+  border: 2px solid transparent;
   border-radius: var(--r-lg);
-  background: var(--surface);
+  background: var(--surface-2);
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
 }
-.strip > div {
-  padding: var(--s4) var(--s5);
+.tile:hover {
+  background: var(--sunken);
 }
-.strip > div + div {
-  border-left: 1px solid var(--rule);
+.tile-head {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  font-weight: 800;
 }
-.strip .n {
-  font-size: var(--t-2xl);
-  font-weight: 750;
-  letter-spacing: -0.01em;
+.tile-big {
+  margin-top: auto;
+  font-size: var(--t-xl);
+  font-weight: 800;
+  line-height: 1.15;
   font-variant-numeric: tabular-nums;
 }
-.strip .n small {
-  font-size: var(--t-md);
-  font-weight: 600;
+.tile-small {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
   color: var(--muted);
-}
-.strip .l {
   font-size: var(--t-sm);
-  color: var(--muted);
 }
+.tile[data-tone="warn"] {
+  border-color: var(--warn);
+  background: var(--warn-tint);
+}
+.tile[data-tone="fail"] {
+  border-color: var(--fail);
+  background: var(--fail-tint);
+}
+.tile[data-tone="warn"] .tile-head,
+.tile[data-tone="warn"] .tile-big {
+  color: var(--warn);
+}
+.tile[data-tone="fail"] .tile-head,
+.tile[data-tone="fail"] .tile-big {
+  color: var(--fail);
+}
+.tile[data-tone="live"] .tile-big::before {
+  content: "";
+  display: inline-block;
+  width: 0.6em;
+  height: 0.6em;
+  margin-right: 0.35em;
+  border-radius: 50%;
+  background: var(--signal);
+  vertical-align: 0.05em;
+}
+:root[data-contrast="high"] .tile {
+  border-color: var(--ink);
+}
+
+.ov-bottom {
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  gap: var(--s4);
+  align-items: start;
+  margin-top: var(--s5);
+}
+
+/* Charts */
 .charts {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -206,13 +526,14 @@
 }
 .chart-card {
   position: relative;
-  padding: var(--s4) var(--s5) var(--s3);
-  border: 1px solid var(--rule);
+  padding: var(--s3) var(--s4) var(--s2);
+  border: 2px solid var(--rule);
   border-radius: var(--r-lg);
   background: var(--surface);
 }
 .chart-card h3 {
   font-size: var(--t-md);
+  font-weight: 800;
 }
 .chart-card .readout {
   min-height: 1.5em;
@@ -285,6 +606,7 @@
   font-size: var(--t-sm);
 }
 
+/* Health checks: table-like rows; problems are tinted and listed first. */
 .checks {
   list-style: none;
   margin: 0;
@@ -292,40 +614,33 @@
 }
 .check {
   display: grid;
-  grid-template-columns: 7rem minmax(0, 1fr) auto;
+  grid-template-columns: 6.5rem minmax(0, 1fr) auto;
   align-items: center;
-  gap: var(--s4);
-  padding: var(--s3) var(--s5);
+  gap: var(--s3);
+  padding: var(--s2) var(--s4);
 }
 .check + .check {
   border-top: 1px solid var(--rule);
+}
+.check > .tag {
+  justify-self: start;
+}
+.check[data-s="warn"] {
+  background: var(--warn-tint);
+}
+.check[data-s="fail"] {
+  background: var(--fail-tint);
 }
 .check strong {
   display: block;
 }
 .check .detail {
-  color: var(--muted);
+  color: var(--ink-2);
   font-size: var(--t-sm);
   overflow-wrap: anywhere;
 }
-.sys {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr));
-  gap: var(--s3) var(--s5);
-  margin: 0;
-}
-.sys dt {
-  color: var(--muted);
-  font-size: var(--t-sm);
-}
-.sys dd {
-  margin: 0;
-  font-weight: 650;
-  font-variant-numeric: tabular-nums;
-}
 .meter {
   height: 6px;
-  margin-top: 4px;
   border-radius: 3px;
   background: var(--sunken);
   overflow: hidden;
@@ -343,6 +658,37 @@
   background: var(--fail);
 }
 
+/* Diagnostics: a smaller sign summing up the health checks. */
+.health-sign {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  margin-bottom: var(--s3);
+  padding: var(--s3) var(--s4);
+  border-radius: var(--r-lg);
+  background: var(--sign-ok);
+  color: var(--sign-ink);
+}
+.health-sign[data-s="warn"] {
+  background: var(--sign-warn);
+}
+.health-sign[data-s="fail"] {
+  background: var(--sign-fail);
+}
+.health-sign .icon {
+  width: 1.75rem;
+  height: 1.75rem;
+  stroke-width: 2.5;
+}
+.health-sign strong {
+  display: block;
+  font-size: var(--t-lg);
+  font-weight: 800;
+}
+.health-sign span {
+  font-size: var(--t-sm);
+}
+
 /* People */
 .toolbar {
   display: flex;
@@ -356,6 +702,9 @@
   width: auto;
   min-width: 12rem;
 }
+.toolbar .input {
+  min-width: 16rem;
+}
 .split {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(22rem, 30rem);
@@ -364,20 +713,21 @@
 }
 .drawer {
   position: sticky;
-  top: var(--s4);
-  max-height: calc(100vh - 3rem);
+  top: 0;
+  max-height: calc(100vh - 10rem);
   overflow: auto;
-  padding: var(--s5);
-  border: 1px solid var(--rule);
+  padding: var(--s4) var(--s5);
   border-radius: var(--r-lg);
-  background: var(--surface);
+  background: var(--surface-2);
 }
 .drawer h2 {
   font-size: var(--t-xl);
+  font-weight: 800;
 }
 .drawer h3 {
   font-size: var(--t-md);
-  margin: var(--s5) 0 var(--s2);
+  font-weight: 800;
+  margin: var(--s4) 0 var(--s2);
 }
 .who-cell {
   display: flex;
@@ -438,13 +788,13 @@
 .checklist input {
   width: 1.1rem;
   height: 1.1rem;
-  accent-color: var(--signal);
+  accent-color: var(--ink);
 }
 
 /* Invites */
 .code-card {
   padding: var(--s4);
-  border: 1px solid var(--rule);
+  border: 2px solid var(--rule);
   border-radius: var(--r-md);
   background: var(--surface-2);
 }
@@ -463,9 +813,9 @@
   height: 30rem;
   overflow: auto;
   padding: var(--s2) 0;
-  border: 1px solid var(--rule);
+  border: 2px solid var(--rule);
   border-radius: var(--r-lg);
-  background: var(--surface);
+  background: var(--surface-2);
   font-family: var(--font-mono);
   font-size: var(--t-xs);
 }
@@ -498,12 +848,17 @@
   color: var(--muted);
 }
 
-/* Gate (setup / unlock) */
+/* ---------------------------------------------------------------------------------- */
+/* Gate (setup / unlock): a dark board beside the form                                 */
+/* ---------------------------------------------------------------------------------- */
+
 .gate {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 32rem);
+  grid-template-columns: minmax(0, 1fr) minmax(0, 34rem);
+  gap: var(--s4);
   height: 100vh;
-  padding-top: 3px;
+  padding: calc(3px + var(--s4)) var(--s4) var(--s4);
+  background: var(--paper);
 }
 .gate-hero {
   display: flex;
@@ -512,18 +867,19 @@
   align-items: center;
   gap: var(--s5);
   padding: var(--s7) clamp(var(--s5), 6vw, 6rem);
-  background: var(--surface-2);
-  border-right: 1px solid var(--rule);
+  border-radius: 20px;
+  background: var(--board);
+  color: #ffffff;
 }
 .gate-hero h1 {
   font-size: clamp(var(--t-2xl), 4vw, 3.2rem);
   line-height: 1.08;
+  font-weight: 800;
   letter-spacing: -0.02em;
-  max-width: 15ch;
+  text-wrap: balance;
 }
 .gate-hero p {
-  max-width: 46ch;
-  color: var(--ink-2);
+  color: rgb(255 255 255 / 0.9);
   font-size: var(--t-lg);
 }
 .gate-lines {
@@ -535,64 +891,87 @@
   display: block;
   height: 10px;
   border-radius: 5px;
-  background: var(--ink);
+  background: #ffffff;
 }
 .gate-lines i + i {
   width: 68%;
-  background: var(--signal);
+  background: #5bc992;
 }
 .gate-form {
+  display: flex;
+  flex-direction: column;
   overflow: auto;
-  padding: var(--s7) var(--s6);
+  padding: var(--s6);
+  border: 2px solid var(--rule);
+  border-radius: 20px;
   background: var(--surface);
 }
 .gate-form form,
 .gate-form .stack {
   gap: var(--s4);
 }
+/* Centre the form vertically without clipping it when the window is short. */
+.gate-form > * {
+  margin-block: auto;
+}
+/* Keep the hero copy in a readable column centred in its half of the window. */
+.gate-hero > * {
+  width: min(100%, 36rem);
+}
 
-@media (max-width: 60rem) {
-  .panel-app {
-    grid-template-columns: 4.5rem minmax(0, 1fr);
-  }
-  .nav .brand span:not(.mark),
-  .nav-btn span,
-  .nav-foot .label-text {
-    display: none;
-  }
-  .nav-btn {
-    justify-content: center;
-  }
+/* ---------------------------------------------------------------------------------- */
+/* Narrow windows                                                                      */
+/* ---------------------------------------------------------------------------------- */
+
+.topbar .label-text {
+  white-space: nowrap;
+}
+
+@media (max-width: 64rem) {
+  .ov-top,
+  .ov-bottom,
   .split,
   .charts {
     grid-template-columns: minmax(0, 1fr);
   }
-  .strip {
+  .drawer {
+    position: static;
+    max-height: none;
+  }
+}
+
+@media (max-width: 48rem) {
+  .topbar {
+    padding: var(--s2) var(--s4) 0;
+  }
+  .brand small {
+    display: none;
+  }
+  .topbar .label-text {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+  }
+  .tiles {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
-  .strip > div:nth-child(3) {
-    border-left: 0;
+  .main-inner {
+    padding: var(--s4) var(--s4) var(--s6);
   }
-  .strip > div:nth-child(n + 3) {
-    border-top: 1px solid var(--rule);
+  .sign h1 {
+    font-size: var(--t-2xl);
+  }
+  .check {
+    grid-template-columns: minmax(0, 1fr);
   }
   .gate {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
     height: auto;
     min-height: 100vh;
   }
   body {
     overflow: auto;
   }
-  .main-inner {
-    padding: var(--s5) var(--s4) var(--s6);
-  }
-  .check {
-    grid-template-columns: minmax(0, 1fr);
-  }
-}
-
-/* Keep the hero copy in a readable column centred in its half of the window. */
-.gate-hero > * {
-  width: min(100%, 36rem);
 }

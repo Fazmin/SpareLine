@@ -75,6 +75,7 @@ pub fn DiagnosticsPage() -> impl IntoView {
     let debug_until = move || c.overview.get().and_then(|o| o.o.debug_mode_until);
     view! {
         <div class="page-head">
+            <span class="page-icon" aria-hidden="true"><Icon name="tool"/></span>
             <div class="grow">
                 <h1>"Diagnostics"</h1>
                 <p class="lede">"Check that staff can reach and use this server. Start here when someone says SpareLine isn't connecting."</p>
@@ -83,6 +84,23 @@ pub fn DiagnosticsPage() -> impl IntoView {
         </div>
         <section aria-labelledby="h-checks">
             <div class="section-title"><h2 id="h-checks">"Health checks"</h2></div>
+            {move || checks.get().map(|h| {
+                let fails = h.iter().filter(|x| x.status == CheckStatus::Fail).count();
+                let warns = h.iter().filter(|x| x.status == CheckStatus::Warn).count();
+                let passed = h.iter().filter(|x| x.status == CheckStatus::Ok).count();
+                let tone = if fails > 0 { "fail" } else { "warn" };
+                let (state, icon, title) = match fails + warns {
+                    0 => ("ok", "check", "All checks passed".to_string()),
+                    1 => (tone, "alert", "1 check needs you".to_string()),
+                    n => (tone, "alert", format!("{n} checks need you")),
+                };
+                view! {
+                    <div class="health-sign" data-s=state role="status">
+                        <Icon name=icon/>
+                        <div><strong>{title}</strong><span>{format!("{passed} of {} passed.", h.len())}</span></div>
+                    </div>
+                }
+            })}
             <div class="box flush">
                 {move || match checks.get() {
                     None => view! { <div class="empty"><sl_ui::Spinner label="Running checks"/></div> }.into_any(),

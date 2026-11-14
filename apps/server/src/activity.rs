@@ -25,6 +25,7 @@ pub fn ActivityPage() -> impl IntoView {
     };
     view! {
         <div class="page-head">
+            <span class="page-icon" aria-hidden="true"><Icon name="pulse"/></span>
             <div class="grow">
                 <h1>"Activity"</h1>
                 <p class="lede">"Live connections, connection problems and the server log. None of this includes message content."</p>

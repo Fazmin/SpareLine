@@ -132,7 +132,13 @@ pub fn SettingsPage() -> impl IntoView {
         });
     });
     view! {
-        <div class="page-head"><div class="grow"><h1>"Settings"</h1></div></div>
+        <div class="page-head">
+            <span class="page-icon" aria-hidden="true"><Icon name="settings"/></span>
+            <div class="grow">
+                <h1>"Settings"</h1>
+                <p class="lede">"Server options, backups, the admin password and how this panel looks."</p>
+            </div>
+        </div>
         <section aria-labelledby="h-server">
             <div class="section-title"><h2 id="h-server">"Server"</h2></div>
             <form class="box stack" on:submit=save>

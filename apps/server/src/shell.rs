@@ -1,9 +1,9 @@
-//! Panel layout: navigation, the status line, page routing, overview polling.
+//! Panel layout: the header with the status chip, page tabs, page routing, overview polling.
 
 use leptos::prelude::*;
 use leptos::task::spawn_local;
 use serde::Serialize;
-use sl_proto::panel::ServerStatus;
+use sl_proto::panel::{CheckStatus, ServerStatus};
 use sl_ui::{AaButton, Icon, Mark, SignalLine, ipc};
 
 use crate::ctx::{OverviewData, Page, call0, ctx};
@@ -15,6 +15,16 @@ pub fn poll_overview() {
             c.overview.set(Some(o));
         }
     });
+}
+
+/// How the server's state is named and drawn: `(data-s value, icon, words)`.
+/// The status chip and the overview sign both use it, so the state is never colour alone.
+pub fn status_look(s: ServerStatus) -> (&'static str, &'static str, &'static str) {
+    match s {
+        ServerStatus::Running => ("running", "check", "Running"),
+        ServerStatus::Degraded => ("degraded", "alert", "Running with problems"),
+        ServerStatus::Stopped => ("stopped", "close", "Stopped"),
+    }
 }
 
 #[component]
@@ -36,20 +46,51 @@ pub fn Shell() -> impl IntoView {
         Some(ServerStatus::Stopped) => "Server stopped".to_string(),
         None => String::new(),
     });
-    let btn = move |p: Page, icon: &'static str, label: &'static str| {
+    let server_name = Memo::new(move |_| {
+        c.overview
+            .with(|o| o.as_ref().map(|d| d.o.server_name.clone()))
+            .unwrap_or_default()
+    });
+    let chip = Memo::new(move |_| {
+        c.overview
+            .with(|o| o.as_ref().map(|d| (d.o.status, d.o.users_online)))
+    });
+    let to_check = Memo::new(move |_| {
+        c.overview
+            .with(|o| {
+                o.as_ref().map(|d| {
+                    d.o.health.iter().fold((0, 0), |(f, w), h| match h.status {
+                        CheckStatus::Fail => (f + 1, w),
+                        CheckStatus::Warn => (f, w + 1),
+                        _ => (f, w),
+                    })
+                })
+            })
+            .unwrap_or((0, 0))
+    });
+    let live = Memo::new(move |_| {
+        c.overview
+            .with(|o| o.as_ref().map(|d| d.o.active_broadcasts))
+            .unwrap_or(0)
+    });
+
+    let tab = move |p: Page, icon: &'static str, label: &'static str| {
         view! {
-            <button class="nav-btn" aria-current=move || (c.page.get() == p).then_some("page") on:click=move |_| c.page.set(p) title=label>
+            <button class="tab" aria-current=move || (c.page.get() == p).then_some("page") on:click=move |_| c.page.set(p)>
                 <Icon name=icon/>
                 <span>{label}</span>
                 {(p == Page::Diagnostics).then(|| view! {
                     {move || {
-                        let fails = c.overview.get().map(|o| o.o.health.iter().filter(|h| h.status == sl_proto::panel::CheckStatus::Fail).count()).unwrap_or(0);
-                        (fails > 0).then(|| view! { <span class="tag fail" aria-label=format!("{fails} problems")>{fails}</span> })
+                        let (fails, warns) = to_check.get();
+                        let n = fails + warns;
+                        (n > 0).then(|| view! {
+                            <span class={if fails > 0 { "tag fail" } else { "tag warn" }} aria-label=format!("{n} to check")>{n}</span>
+                        })
                     }}
                 })}
                 {(p == Page::Announcements).then(|| view! {
                     {move || {
-                        let n = c.overview.get().map(|o| o.o.active_broadcasts).unwrap_or(0);
+                        let n = live.get();
                         (n > 0).then(|| view! { <span class="tag ok" aria-label=format!("{n} live")>"Live"</span> })
                     }}
                 })}
@@ -68,24 +109,38 @@ pub fn Shell() -> impl IntoView {
         <SignalLine state=line_state label=line_label/>
         <a class="skip-link" href="#main">"Skip to content"</a>
         <div class="panel-app">
-            <nav class="nav" aria-label="Control panel">
-                <div class="brand"><Mark/><span>"SpareLine"<small>"Server control panel"</small></span></div>
-                {btn(Page::Overview, "home", "Overview")}
-                {btn(Page::People, "people", "People")}
-                {btn(Page::Groups, "groups", "Groups")}
-                {btn(Page::Invites, "invite", "Invites")}
-                {btn(Page::Announcements, "megaphone", "Announcements")}
-                {btn(Page::Activity, "pulse", "Activity")}
-                {btn(Page::Diagnostics, "tool", "Diagnostics")}
-                {btn(Page::Settings, "settings", "Settings")}
-                <div class="nav-foot">
-                    <div class="row">
-                        <span class="grow small label-text truncate">{move || c.overview.get().map(|o| o.o.server_name).unwrap_or_default()}</span>
-                        <AaButton align_left=true/>
+            <header class="topbar">
+                <div class="topbar-row">
+                    <div class="brand">
+                        <Mark/>
+                        <span>"SpareLine Server"</span>
+                        <small class="truncate">{move || server_name.get()}</small>
                     </div>
+                    {move || chip.get().map(|(s, online)| {
+                        let (state, icon, words) = status_look(s);
+                        view! {
+                            <button class="status-chip" data-s=state title="Open the overview" on:click=move |_| c.page.set(Page::Overview)>
+                                <Icon name=icon/>
+                                <span>{words}</span>
+                                {(s != ServerStatus::Stopped).then(|| view! { <span class="chip-detail">{format!("{online} connected")}</span> })}
+                            </button>
+                        }
+                    })}
+                    <span class="grow"></span>
+                    <AaButton/>
                     <button class="btn quiet small" on:click=lock><Icon name="lock"/><span class="label-text">"Lock panel"</span></button>
                 </div>
-            </nav>
+                <nav class="tabs" aria-label="Control panel">
+                    {tab(Page::Overview, "home", "Overview")}
+                    {tab(Page::People, "people", "People")}
+                    {tab(Page::Invites, "invite", "Invites")}
+                    {tab(Page::Activity, "pulse", "Activity")}
+                    {tab(Page::Diagnostics, "tool", "Diagnostics")}
+                    {tab(Page::Groups, "groups", "Groups")}
+                    {tab(Page::Announcements, "megaphone", "Announcements")}
+                    {tab(Page::Settings, "settings", "Settings")}
+                </nav>
+            </header>
             <main class="main" id="main" tabindex="-1">
                 <div class="main-inner">
                     {move || match c.page.get() {

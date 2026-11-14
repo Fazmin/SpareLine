@@ -37,19 +37,29 @@ pub struct Ctx {
     pub focus_user: RwSignal<Option<uuid::Uuid>>,
 }
 
+thread_local! {
+    /// The panel has exactly one `Ctx`. Async tasks (`spawn_local`) and timers run without
+    /// a reactive owner, so `use_context` finds nothing there; they fall back to this copy.
+    static PANEL: std::cell::Cell<Option<Ctx>> = const { std::cell::Cell::new(None) };
+}
+
 pub fn ctx() -> Ctx {
-    expect_context::<Ctx>()
+    use_context::<Ctx>()
+        .or_else(|| PANEL.with(std::cell::Cell::get))
+        .expect("the panel context is created in App before any page renders")
 }
 
 impl Ctx {
     pub fn new() -> Self {
-        Self {
+        let c = Self {
             state: RwSignal::new(None),
             page: RwSignal::new(Page::Overview),
             overview: RwSignal::new(None),
             invite_now: RwSignal::new(false),
             focus_user: RwSignal::new(None),
-        }
+        };
+        PANEL.with(|p| p.set(Some(c)));
+        c
     }
 
     pub fn locked(&self) {
