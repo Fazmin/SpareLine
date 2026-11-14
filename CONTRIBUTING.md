@@ -30,7 +30,7 @@ cargo xtask discover       # list SpareLine servers visible on your network
 Tips:
 
 - **Two clients on one machine:** start the second with its own data folder, for example `SPARELINE_CLIENT_DIR=/tmp/sl2`.
-- **Headless server:** `SPARELINE_ADMIN_PASSWORD="…" spareline-server --headless --data-dir ./dev-data`
+- **Headless server:** `SPARELINE_ADMIN_PASSWORD="…" spareline-server --headless --data-dir ./dev-data` (`--help` lists the standby and restore options)
 - **UI preview with sample data, no backend:** run `trunk serve` in `apps/client` and open `localhost:1420/?demo`, or in `apps/server` and open `localhost:1430/?demo`. Add `=onboarding`, `=signin`, `=setup` or `=locked` to see other screens.
 
 ## Project layout

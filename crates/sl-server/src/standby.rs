@@ -142,6 +142,18 @@ pub fn has_password(paths: &Paths) -> bool {
     load_key(paths).is_some()
 }
 
+/// Whether `password` is the current standby password.
+pub async fn password_matches(paths: &Paths, password: String) -> bool {
+    let Some(k) = load_key(paths) else {
+        return false;
+    };
+    tokio::task::spawn_blocking(move || {
+        derive(&password, &k.salt, k.m, k.t, k.p).is_ok_and(|d| sl_proto::crypto::ct_eq(&d, &k.key))
+    })
+    .await
+    .unwrap_or(false)
+}
+
 // ---------------------------------------------------------------------------------------
 // Sealed stream
 // ---------------------------------------------------------------------------------------
@@ -587,14 +599,11 @@ impl State {
 
 /// An error as a phrase for the admin ("the standby folder isn't available …").
 fn describe(e: &AppError) -> String {
-    match e {
-        AppError::Api(a) if !a.detail.is_empty() => a.detail.clone(),
-        AppError::Api(a) => a.code.user_message().to_string(),
-        AppError::Internal(e) => format!("{e:#}"),
-    }
+    e.plain()
 }
 
-fn sentence(s: &str) -> String {
+/// Capitalise the first letter, to show a phrase on its own.
+pub fn sentence(s: &str) -> String {
     let mut c = s.chars();
     match c.next() {
         Some(f) => f.to_uppercase().collect::<String>() + c.as_str(),

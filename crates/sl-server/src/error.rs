@@ -13,6 +13,15 @@ pub enum AppError {
 pub type AppResult<T> = Result<T, AppError>;
 
 impl AppError {
+    /// The error as a plain phrase for the admin, without the error code.
+    pub fn plain(&self) -> String {
+        match self {
+            Self::Api(a) if !a.detail.is_empty() => a.detail.clone(),
+            Self::Api(a) => a.code.user_message().to_string(),
+            Self::Internal(e) => format!("{e:#}"),
+        }
+    }
+
     pub fn into_api(self) -> ApiError {
         match self {
             Self::Api(e) => e,

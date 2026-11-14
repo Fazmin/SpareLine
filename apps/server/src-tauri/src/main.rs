@@ -5,8 +5,14 @@
 //! Headless: `spareline-server --headless [--data-dir DIR]`
 //! (first run: set `SPARELINE_ADMIN_PASSWORD` to complete setup without the panel).
 //!
+//! Standby copies without the panel: add `--standby-folder DIR` (with
+//! `SPARELINE_STANDBY_PASSWORD` set the first time), and optionally `--standby-every`
+//! and `--standby-keep`. `--standby-off` turns them off.
+//!
 //! Taking over from a failed server: `spareline-server --headless --restore COPY`
 //! with `SPARELINE_STANDBY_PASSWORD` set, on a fresh install or an empty `--data-dir`.
+//!
+//! `spareline-server --help` lists every option.
 
 #![cfg_attr(
     all(not(debug_assertions), target_os = "windows"),
@@ -600,18 +606,102 @@ fn show_main(app: &AppHandle) {
     }
 }
 
+const HELP: &str = "\
+SpareLine Server
+
+Usage: spareline-server [--headless] [options]
+
+Options:
+  --headless               Run without the tray icon or control panel
+  --data-dir DIR           Keep the server's data in DIR
+  --restore COPY           Take over from a server that stopped working, using one
+                           of its standby copies (fresh install or empty data folder)
+  --standby-folder DIR     Turn on standby copies and save them in DIR
+  --standby-every MINUTES  How often to make a copy, 5 to 1440 (default 15)
+  --standby-keep N         How many copies to keep, 1 to 50 (default 4)
+  --standby-off            Turn standby copies off
+  --help                   Show this help
+
+The restore and standby options work with --headless. In the tray app, use the
+setup screen and Settings in the control panel instead.
+
+Environment:
+  SPARELINE_ADMIN_PASSWORD    Admin password, to finish first-run setup headless
+  SPARELINE_STANDBY_PASSWORD  Standby password, to restore a copy or to set the
+                              password for --standby-folder (10+ characters)
+";
+
 fn arg_value(args: &[String], name: &str) -> Option<String> {
     args.iter()
         .position(|a| a == name)
         .and_then(|i| args.get(i + 1).cloned())
 }
 
+fn usage_error(msg: &str) -> ! {
+    eprintln!("{msg}\nRun spareline-server --help to see the options.");
+    std::process::exit(2);
+}
+
+/// A number option within `range`, or exit with a usage error.
+fn arg_number(args: &[String], name: &str, range: std::ops::RangeInclusive<u32>) -> Option<u32> {
+    let v = arg_value(args, name)?;
+    match v.trim().parse::<u32>() {
+        Ok(n) if range.contains(&n) => Some(n),
+        _ => usage_error(&format!(
+            "{name} takes a number from {} to {}.",
+            range.start(),
+            range.end()
+        )),
+    }
+}
+
+/// Standby copy options for a server run without the panel.
+#[derive(Default)]
+struct StandbyArgs {
+    folder: Option<String>,
+    every: Option<u32>,
+    keep: Option<u32>,
+    off: bool,
+}
+
+impl StandbyArgs {
+    fn parse(args: &[String]) -> Self {
+        let a = Self {
+            folder: arg_value(args, "--standby-folder").filter(|f| !f.trim().is_empty()),
+            every: arg_number(args, "--standby-every", 5..=24 * 60),
+            keep: arg_number(args, "--standby-keep", 1..=50),
+            off: args.iter().any(|a| a == "--standby-off"),
+        };
+        if a.off && (a.folder.is_some() || a.every.is_some() || a.keep.is_some()) {
+            usage_error("--standby-off can't be combined with the other standby options.");
+        }
+        if args.iter().any(|x| x == "--standby-folder") && a.folder.is_none() {
+            usage_error("--standby-folder needs a folder.");
+        }
+        a
+    }
+
+    fn any(&self) -> bool {
+        self.off || self.folder.is_some() || self.every.is_some() || self.keep.is_some()
+    }
+}
+
 fn main() {
     let args: Vec<String> = std::env::args().collect();
+    if args.iter().any(|a| a == "--help" || a == "-h") {
+        print!("{HELP}");
+        return;
+    }
     let data_dir = arg_value(&args, "--data-dir")
         .map(PathBuf::from)
         .unwrap_or_else(Paths::default_root);
     let headless = args.iter().any(|a| a == "--headless");
+    let standby = StandbyArgs::parse(&args);
+    if !headless && (standby.any() || args.iter().any(|a| a == "--restore")) {
+        usage_error(
+            "The restore and standby options work with --headless. In the tray app, use the control panel instead.",
+        );
+    }
     let paths = Paths::new(&data_dir);
     let (telemetry, _guard) =
         match sl_server::telemetry::init(&paths, 14, headless || cfg!(debug_assertions)) {
@@ -631,7 +721,7 @@ fn main() {
     };
 
     if headless {
-        run_headless(engine, arg_value(&args, "--restore"));
+        run_headless(engine, arg_value(&args, "--restore"), standby);
         return;
     }
 
@@ -782,7 +872,7 @@ fn main() {
     }
 }
 
-fn run_headless(engine: Engine, restore: Option<String>) {
+fn run_headless(engine: Engine, restore: Option<String>, standby: StandbyArgs) {
     let rt = match tokio::runtime::Runtime::new() {
         Ok(rt) => rt,
         Err(e) => {
@@ -813,7 +903,7 @@ fn run_headless(engine: Engine, restore: Option<String>) {
                     println!("Keep the old server switched off: two servers with the same identity would confuse staff apps.");
                 }
                 Err(e) => {
-                    eprintln!("Restore failed: {e}");
+                    eprintln!("Restore failed. {}", say(&e));
                     std::process::exit(2);
                 }
             }
@@ -823,7 +913,7 @@ fn run_headless(engine: Engine, restore: Option<String>) {
                 Ok(pw) => match engine.setup(&sl_server::config::default_server_name(), &pw).await {
                     Ok(key) => println!("Setup complete. Recovery key (store it safely): {key}"),
                     Err(e) => {
-                        eprintln!("Setup failed: {e}");
+                        eprintln!("Setup failed. {}", say(&e));
                         std::process::exit(2);
                     }
                 },
@@ -833,12 +923,19 @@ fn run_headless(engine: Engine, restore: Option<String>) {
                 }
             }
         }
+        if let Err(e) = apply_standby_args(&engine, &standby).await {
+            eprintln!("{e}");
+            std::process::exit(2);
+        }
         match engine.start().await {
             Ok(addr) => {
                 println!("SpareLine Server listening on {addr}");
                 println!("Fingerprint: {}", engine.tls().fingerprint);
                 for ip in sl_net_ips() {
                     println!("  Clients can connect to {ip}:{}", addr.port());
+                }
+                if !standby.off {
+                    print_standby(&engine.admin().standby_status());
                 }
             }
             Err(e) => {
@@ -849,6 +946,90 @@ fn run_headless(engine: Engine, restore: Option<String>) {
         let _ = tokio::signal::ctrl_c().await;
         engine.stop().await;
     });
+}
+
+/// Turn standby copies on, change them or turn them off, as the options ask. Does
+/// nothing when they already match, so the options can stay in a startup script.
+async fn apply_standby_args(engine: &Engine, a: &StandbyArgs) -> Result<(), String> {
+    use sl_server::standby::password_matches;
+    let admin = engine.admin();
+    let cur = admin.standby_status();
+    if a.off {
+        if cur.enabled {
+            admin.standby_turn_off().map_err(|e| say(&e))?;
+            println!("Standby copies are off. Copies already made stay in the folder.");
+        }
+        return Ok(());
+    }
+    if !a.any() {
+        return Ok(());
+    }
+    let folder = match &a.folder {
+        Some(f) => f.trim().to_string(),
+        None if cur.enabled => cur.folder.clone(),
+        None => return Err("Add --standby-folder DIR to turn on standby copies.".into()),
+    };
+    let every = a.every.unwrap_or(cur.interval_minutes);
+    let keep = a.keep.unwrap_or(cur.keep);
+    let password = std::env::var("SPARELINE_STANDBY_PASSWORD").unwrap_or_default();
+    let same_password = password.is_empty()
+        || (cur.has_password && password_matches(engine.paths(), password.clone()).await);
+    if cur.enabled
+        && cur.folder == folder
+        && cur.interval_minutes == every
+        && cur.keep == keep
+        && same_password
+    {
+        return Ok(());
+    }
+    if !Path::new(&folder).is_dir() {
+        return Err(format!(
+            "Standby copies weren't changed. The folder {folder} doesn't exist or can't be reached."
+        ));
+    }
+    if password.is_empty() && !cur.has_password {
+        return Err("Set SPARELINE_STANDBY_PASSWORD to choose the standby password (10 or more characters). You'll need it to restore a copy.".into());
+    }
+    let s = admin
+        .standby_setup(StandbySetupInput {
+            folder,
+            interval_minutes: every,
+            keep,
+            password: if same_password {
+                String::new()
+            } else {
+                password
+            },
+        })
+        .await
+        .map_err(|e| format!("Standby copies weren't changed. {}", say(&e)))?;
+    match &s.last_error {
+        Some(e) => println!("Standby copies are on, but the first copy failed. {e}"),
+        None => println!("Standby copies are on. The first copy is saved."),
+    }
+    Ok(())
+}
+
+/// An error as a sentence for the terminal.
+fn say(e: &AppError) -> String {
+    let s = sl_server::standby::sentence(&e.plain());
+    if s.ends_with('.') { s } else { s + "." }
+}
+
+fn print_standby(s: &StandbyStatus) {
+    if !s.enabled {
+        println!("Standby copies are off. Turn them on with --standby-folder DIR.");
+        return;
+    }
+    println!(
+        "Standby copies: every {} minutes to {}, keeping {}.",
+        s.interval_minutes, s.folder, s.keep
+    );
+    if s.same_disk {
+        println!(
+            "  That folder is on the same disk as the server, so the copies wouldn't survive a disk failure."
+        );
+    }
 }
 
 fn sl_net_ips() -> Vec<String> {

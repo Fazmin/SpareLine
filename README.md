@@ -15,8 +15,6 @@
 3. **Staff join.** The SpareLine app finds the server on the network by itself and checks it's the real one.
 4. **When the cloud goes down, keep talking.** Messages are encrypted on each person's computer. The server only passes sealed messages along.
 
-## See it
-
 <p align="center">
   <a href="docs/assets/walkthrough.mp4"><img src="docs/assets/walkthrough.webp" alt="Walkthrough, 1 minute 43 seconds with captions: setting up the server, handing out invites, a staff member joining, and chatting while the cloud is down" width="100%"></a>
 </p>
@@ -39,14 +37,18 @@ SpareLine runs entirely on computers your organisation owns. It doesn't send any
 
 ### What stays private
 
-| Only the people in the chat can read | The server knows, so it can deliver messages |
-|---|---|
-| Messages and replies | Accounts, groups and who is in each chat |
-| Edits, deletions and reactions | Each device's name, operating system and app version |
-| Chat names | When a message was sent and its size |
-| Each person's chat history | Who is online or typing, and how far they've read |
+| | People in the chat | SpareLine Server | Admin, in the control panel |
+|---|:---:|:---:|:---:|
+| **Messages, replies and edits** | ✓ | Sealed | — |
+| **Reactions and deletions** | ✓ | Sealed | — |
+| **Chat names** | ✓ | Sealed | — |
+| **Who is in each chat** | ✓ | ✓ | — |
+| **When each message was sent, and its size** | ✓ | ✓ | Totals per minute only |
+| **Typing, and how far people have read** | ✓ | ✓ | — |
+| **Who is online** | People who share a group | ✓ | ✓ |
+| **Accounts, groups and devices** | Names of people who share a group | ✓ | ✓ |
 
-Typing isn't stored, and anyone can turn off read receipts in Settings.
+**Sealed** means the server holds the encrypted message but has no key to open it. Typing isn't stored, and anyone can turn off read receipts in Settings. Each person's chat history stays on their own computer, encrypted.
 
 ### How it's protected
 
@@ -85,18 +87,12 @@ Typing isn't stored, and anyone can turn off read receipts in Settings.
 
 The [privacy statement](docs/PRIVACY.md) lists everything that is stored, and the [protocol notes](docs/PROTOCOL.md) describe the trust model and cryptography in full. Found a security problem? Please report it privately: open the **Security** tab and choose **Report a vulnerability**.
 
-## Good to know
-
-- **Calm to use.** A quiet, compact design in light and dark, with larger text, high contrast, an easier-to-read font and full keyboard support.
-- **Quick to get around.** Press <kbd>⌘K</kbd> (<kbd>Ctrl</kbd>+<kbd>K</kbd> on Windows) in either app to jump to any chat, page or action.
-- **Easy to look after.** The control panel shows who's connected, what's wrong and how to fix it.
-- **Ready if the server fails.** Standby copies let another computer take over with the same identity, so staff apps reconnect by themselves. See the [admin guide](docs/ADMIN_GUIDE.md#if-the-server-computer-fails).
-
 ## Get started
 
 | You are… | Start here |
 |---|---|
 | Setting it up for your organisation | [Admin guide](docs/ADMIN_GUIDE.md) |
+| Running the server from the command line | [Command-line options](docs/ADMIN_GUIDE.md#running-without-the-control-panel) |
 | Using it at work | [Quick start](docs/USER_QUICKSTART.md) |
 | Building or improving it | [Contributing](CONTRIBUTING.md) |
 
