@@ -78,7 +78,6 @@ pub fn PeoplePage() -> impl IntoView {
     };
     view! {
         <div class="page-head">
-            <span class="page-icon" aria-hidden="true"><Icon name="people"/></span>
             <div class="grow">
                 <h1>"People"</h1>
                 <p class="lede">"Everyone with a SpareLine account. People join with an invite; you decide which groups they're in, and therefore who they can see and message."</p>

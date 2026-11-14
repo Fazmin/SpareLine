@@ -7,9 +7,9 @@ use leptos::task::spawn_local;
 use serde::Serialize;
 use sl_proto::client_ipc::*;
 use sl_proto::{ConversationId, ConversationKind, Directory, GroupId, UserId};
-use sl_ui::{Avatar, Icon, Modal, format, ipc, toasts};
+use sl_ui::{Avatar, Command, CommandMenu, Icon, Modal, format, ipc, mod_key, toasts};
 
-use crate::state::store;
+use crate::state::{View, store};
 
 // -------------------------------------------------------------------------------------
 // Confirm
@@ -401,60 +401,84 @@ pub fn Switcher() -> impl IntoView {
             std::time::Duration::from_millis(220),
         );
     });
-    let convs = move || {
+    let items = Signal::derive(move || {
         let query = q.get().to_lowercase();
-        s.convs.with(|v| {
-            v.iter()
-                .filter(|c| query.is_empty() || c.title.to_lowercase().contains(&query))
+        let terms: Vec<&str> = query.split_whitespace().collect();
+        let matches = |hay: &str| {
+            let hay = hay.to_lowercase();
+            terms.iter().all(|t| hay.contains(t))
+        };
+        let mut v: Vec<Command> = s.convs.with(|list| {
+            list.iter()
+                .filter(|c| matches(&c.title))
                 .take(8)
-                .cloned()
-                .collect::<Vec<_>>()
-        })
-    };
-    let go = move |id: ConversationId| {
-        open.set(false);
-        s.open(id);
-    };
+                .map(|c| {
+                    let id = c.id;
+                    let trail = if c.unread > 0 {
+                        format!("{} unread", c.unread)
+                    } else {
+                        c.last_message
+                            .as_ref()
+                            .map(|m| format::short_when(m.ts))
+                            .unwrap_or_default()
+                    };
+                    Command::new("Chats", "", c.title.clone(), move || s.open(id))
+                        .avatar(
+                            c.title.clone(),
+                            c.id.to_string(),
+                            c.kind == ConversationKind::Group,
+                        )
+                        .trail(trail)
+                })
+                .collect()
+        });
+        v.extend(hits.get().into_iter().map(|h| {
+            let id = h.conversation;
+            Command::new(
+                "Messages on this computer",
+                "chat",
+                format!("{} in {}", h.message.sender_name, h.conversation_title),
+                move || s.open(id),
+            )
+            .detail(h.message.body.chars().take(140).collect::<String>())
+            .trail(format::short_when(h.message.ts))
+        }));
+        let actions = [
+            Command::new("Actions", "edit", "New chat", move || {
+                s.new_chat_open.set(true)
+            })
+            .keys(&[mod_key().trim_end(), "N"]),
+            Command::new("Actions", "people", "Browse people", move || {
+                s.view.set(View::People)
+            }),
+            Command::new("Actions", "settings", "Open settings", move || {
+                s.view.set(View::Settings)
+            }),
+            Command::new("Actions", "info", "Keyboard shortcuts", move || {
+                s.shortcuts_open.set(true)
+            })
+            .keys(&[mod_key().trim_end(), "/"]),
+        ];
+        v.extend(actions.into_iter().filter(|c| matches(&c.label)));
+        v
+    });
+    let empty = Signal::derive(move || {
+        if q.get().trim().chars().count() < 2 {
+            "No matching chats.".to_string()
+        } else {
+            "No chats or messages match. Search looks through messages stored on this computer."
+                .to_string()
+        }
+    });
     view! {
-        <Modal open=open title="Go to a chat or search messages">
-            <div class="modal-body">
-                <input class="input" type="search" aria-label="Search" placeholder="Type a name or words from a message" autofocus prop:value=move || q.get() on:input=move |e| q.set(event_target_value(&e))/>
-                <ul class="switcher-list">
-                    <li><span class="label">"Chats"</span></li>
-                    <For each=convs key=|c| c.id let:c>
-                        {
-                            let id = c.id;
-                            view! {
-                                <li><button class="pick" on:click=move |_| go(id)>
-                                    <Avatar name=Signal::stored(c.title.clone()) seed=Signal::stored(c.id.to_string()) size=1.8 group=c.kind == ConversationKind::Group/>
-                                    <span class="grow">{c.title.clone()}</span>
-                                    {(c.unread > 0).then(|| view! { <span class="badge">{c.unread}</span> })}
-                                </button></li>
-                            }
-                        }
-                    </For>
-                    <Show when=move || !hits.get().is_empty()>
-                        <li><span class="label">"Messages"</span></li>
-                    </Show>
-                    <For each=move || hits.get() key=|h| h.message.id let:h>
-                        {
-                            let id = h.conversation;
-                            view! {
-                                <li><button class="pick" on:click=move |_| go(id)>
-                                    <span class="grow">
-                                        <strong>{h.message.sender_name.clone()}</strong>
-                                        " in " {h.conversation_title.clone()}
-                                        <span class="hint" style="display:block">{h.message.body.chars().take(140).collect::<String>()}</span>
-                                    </span>
-                                    <span class="hint">{format::short_when(h.message.ts)}</span>
-                                </button></li>
-                            }
-                        }
-                    </For>
-                </ul>
-                <p class="hint" style="margin-top:var(--s3)">"Search looks through messages stored on this computer."</p>
-            </div>
-        </Modal>
+        <CommandMenu
+            open=open
+            title="Go to a chat or search messages"
+            placeholder="Type a name or words from a message"
+            query=q
+            items=items
+            empty=empty
+        />
     }
 }
 

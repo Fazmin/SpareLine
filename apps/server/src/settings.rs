@@ -133,7 +133,6 @@ pub fn SettingsPage() -> impl IntoView {
     });
     view! {
         <div class="page-head">
-            <span class="page-icon" aria-hidden="true"><Icon name="settings"/></span>
             <div class="grow">
                 <h1>"Settings"</h1>
                 <p class="lede">"Server options, backups, the admin password and how this panel looks."</p>

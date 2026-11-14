@@ -20,7 +20,7 @@ js-sys.workspace = true
 gloo-timers.workspace = true
 web-sys = { workspace = true, features = [
     "HtmlInputElement", "HtmlSelectElement", "HtmlTextAreaElement", "HtmlElement", "Element", "Window", "Document",
-    "PointerEvent", "MouseEvent", "DomRect", "KeyboardEvent",
+    "PointerEvent", "MouseEvent", "DomRect", "KeyboardEvent", "Event", "EventTarget",
 ] }
 
 [lints]

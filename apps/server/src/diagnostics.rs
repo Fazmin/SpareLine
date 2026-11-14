@@ -75,7 +75,6 @@ pub fn DiagnosticsPage() -> impl IntoView {
     let debug_until = move || c.overview.get().and_then(|o| o.o.debug_mode_until);
     view! {
         <div class="page-head">
-            <span class="page-icon" aria-hidden="true"><Icon name="tool"/></span>
             <div class="grow">
                 <h1>"Diagnostics"</h1>
                 <p class="lede">"Check that staff can reach and use this server. Start here when someone says SpareLine isn't connecting."</p>

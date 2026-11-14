@@ -29,6 +29,8 @@ pub struct Prefs {
     pub high_contrast: bool,
     pub reduce_motion: bool,
     pub compact: bool,
+    /// Atkinson Hyperlegible instead of the platform UI font.
+    pub legible_font: bool,
 }
 
 impl Default for Prefs {
@@ -39,6 +41,7 @@ impl Default for Prefs {
             high_contrast: false,
             reduce_motion: false,
             compact: false,
+            legible_font: false,
         }
     }
 }
@@ -105,6 +108,7 @@ pub fn apply(p: &Prefs) {
     toggle("data-contrast", p.high_contrast, "high");
     toggle("data-motion", p.reduce_motion, "reduce");
     toggle("data-density", p.compact, "compact");
+    toggle("data-font", p.legible_font, "legible");
     if let Some(h) = el.dyn_ref::<web_sys::HtmlElement>() {
         let _ = h.style().set_property("--scale", &format!("{}", p.scale));
     }
@@ -163,4 +167,4 @@ pub fn provide_prefs() -> PrefsCtx {
 }
 
 /// The inline script used by both `index.html` files (kept here for reference/tests).
-pub const PREPAINT_SCRIPT: &str = r#"(function(){try{var p=JSON.parse(localStorage.getItem('spareline.prefs')||'{}');var d=p.theme==='dark'||(p.theme!=='light'&&matchMedia('(prefers-color-scheme: dark)').matches);var e=document.documentElement;e.setAttribute('data-theme',d?'dark':'light');if(p.high_contrast)e.setAttribute('data-contrast','high');if(p.reduce_motion)e.setAttribute('data-motion','reduce');if(p.compact)e.setAttribute('data-density','compact');if(p.scale)e.style.setProperty('--scale',p.scale);}catch(_){}})();"#;
+pub const PREPAINT_SCRIPT: &str = r#"(function(){try{var p=JSON.parse(localStorage.getItem('spareline.prefs')||'{}');var d=p.theme==='dark'||(p.theme!=='light'&&matchMedia('(prefers-color-scheme: dark)').matches);var e=document.documentElement;e.setAttribute('data-theme',d?'dark':'light');if(p.high_contrast)e.setAttribute('data-contrast','high');if(p.reduce_motion)e.setAttribute('data-motion','reduce');if(p.compact)e.setAttribute('data-density','compact');if(p.legible_font)e.setAttribute('data-font','legible');if(p.scale)e.style.setProperty('--scale',p.scale);}catch(_){}})();"#;

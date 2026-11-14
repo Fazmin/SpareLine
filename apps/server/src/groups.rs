@@ -60,7 +60,6 @@ pub fn GroupsPage() -> impl IntoView {
     };
     view! {
         <div class="page-head">
-            <span class="page-icon" aria-hidden="true"><Icon name="groups"/></span>
             <div class="grow">
                 <h1>"Groups"</h1>
                 <p class="lede">"Groups decide who can find whom. People only see colleagues who share a group with them, and group chats belong to one group."</p>

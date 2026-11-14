@@ -1,11 +1,11 @@
-//! The signed-in layout: rail, chat list, conversation.
+//! The signed-in layout: sidebar, chat list, conversation.
 
 use leptos::prelude::*;
 use leptos::task::spawn_local;
 use serde::Serialize;
 use sl_proto::client_ipc::*;
 use sl_proto::{ConversationId, ConversationKind, Presence, Severity};
-use sl_ui::{AaButton, Avatar, Icon, Mark, format, ipc, presence_label, toasts};
+use sl_ui::{AaButton, Avatar, Icon, Mark, format, ipc, mod_key, presence_label, toasts};
 use uuid::Uuid;
 use wasm_bindgen::JsCast;
 
@@ -25,16 +25,18 @@ pub fn Shell() -> impl IntoView {
     view! {
         <a class="skip-link" href="#main">"Skip to main content"</a>
         <div
-            class="app"
+            class="app frame"
             class:single=move || view.get() != View::Chats
             data-pane=move || if has_selection.get() { "chat" } else { "list" }
         >
-            <Rail/>
-            {move || match view.get() {
-                View::Chats => view! { <ChatList/> <ChatPane/> }.into_any(),
-                View::People => view! { <People/> }.into_any(),
-                View::Settings => view! { <Settings/> }.into_any(),
-            }}
+            <Sidebar/>
+            <div class="workspace inset" class:split=move || view.get() == View::Chats>
+                {move || match view.get() {
+                    View::Chats => view! { <ChatList/> <ChatPane/> }.into_any(),
+                    View::People => view! { <People/> }.into_any(),
+                    View::Settings => view! { <Settings/> }.into_any(),
+                }}
+            </div>
         </div>
         <NewChatDialog/>
         <Switcher/>
@@ -44,21 +46,27 @@ pub fn Shell() -> impl IntoView {
 }
 
 // -------------------------------------------------------------------------------------
-// Rail
+// Sidebar
 // -------------------------------------------------------------------------------------
 
 #[component]
-fn Rail() -> impl IntoView {
+fn Sidebar() -> impl IntoView {
     let s = store();
-    let btn = move |v: View, icon: &'static str, label: &'static str| {
+    let server = Memo::new(move |_| {
+        s.app
+            .with(|a| a.server.as_ref().map(|x| x.name.clone()))
+            .unwrap_or_default()
+    });
+    let item = move |v: View, icon: &'static str, label: &'static str| {
         view! {
             <button
-                class="rail-btn"
+                class="nav-item"
+                title=label
                 aria-current=move || (s.view.get() == v).then_some("page")
                 on:click=move |_| s.view.set(v)
             >
                 <Icon name=icon/>
-                <span>{label}</span>
+                <span class="grow truncate">{label}</span>
                 {(v == View::Chats).then(|| view! {
                     <Show when=move || { s.unread_total() > 0 }>
                         <span class="badge" aria-label=move || format!("{} unread", s.unread_total())>
@@ -70,14 +78,32 @@ fn Rail() -> impl IntoView {
         }
     };
     view! {
-        <nav class="rail" id="rail" aria-label="Main">
-            <div class="brand" title="SpareLine"><Mark/></div>
-            {btn(View::Chats, "chat", "Chats")}
-            {btn(View::People, "people", "People")}
+        <nav class="side" id="rail" aria-label="Main">
+            <div class="side-head">
+                <Mark/>
+                <span class="grow">
+                    <span class="side-title truncate">{move || { let n = server.get(); if n.is_empty() { "SpareLine".to_string() } else { n } }}</span>
+                    <span class="side-sub truncate">"Backup chat"</span>
+                </span>
+                <button class="icon-btn" aria-label="New chat" title="New chat (Ctrl+N)" on:click=move |_| s.new_chat_open.set(true)>
+                    <Icon name="edit"/>
+                </button>
+            </div>
+            <button class="side-search" title="Search or jump to" aria-keyshortcuts="Control+K Meta+K" on:click=move |_| s.switcher_open.set(true)>
+                <Icon name="search"/>
+                <span class="grow">"Search or jump to…"</span>
+                <span class="kbd" aria-hidden="true">{format!("{}K", mod_key())}</span>
+            </button>
+            <div class="side-nav">
+                {item(View::Chats, "chat", "Chats")}
+                {item(View::People, "people", "People")}
+                {item(View::Settings, "settings", "Settings")}
+            </div>
             <span class="grow"></span>
-            <AaButton align_left=true/>
-            {btn(View::Settings, "settings", "Settings")}
-            <MeMenu/>
+            <div class="side-foot">
+                <MeMenu/>
+                <AaButton align_left=true/>
+            </div>
         </nav>
     }
 }
@@ -101,19 +127,20 @@ fn MeMenu() -> impl IntoView {
         open.set(false);
     };
     view! {
-        <div style="position:relative">
+        <div class="grow" style="position:relative;min-width:0">
             <button
-                class="me-btn"
+                class="nav-item me-btn"
                 aria-label=move || format!("{}, {}. Change status", name.get(), presence_label(presence.get()))
                 aria-expanded=move || open.get().to_string()
                 on:click=move |_| open.update(|o| *o = !*o)
             >
-                <Avatar name=name seed=seed size=2.4 presence=presence/>
+                <Avatar name=name seed=seed size=1.5 presence=presence/>
+                <span class="grow truncate" aria-hidden="true">{move || name.get()}</span>
             </button>
             <Show when=move || open.get()>
                 <div style="position:fixed;inset:0;z-index:39" on:click=move |_| open.set(false)></div>
-                <div class="popover" role="menu" aria-label="Your status" style="left:3.5rem;bottom:0;width:15rem" on:keydown=move |e| if e.key() == "Escape" { open.set(false) }>
-                    <p style="font-weight:700">{move || name.get()}</p>
+                <div class="popover" role="menu" aria-label="Your status" style="left:0;bottom:calc(100% + 6px);width:15rem" on:keydown=move |e| if e.key() == "Escape" { open.set(false) }>
+                    <p style="font-weight:600">{move || name.get()}</p>
                     <p class="hint" style="margin-bottom:var(--s3)">{move || me().map(|m| format!("@{}", m.username)).unwrap_or_default()}</p>
                     <div class="stack" style="gap:var(--s1)">
                         <button class="btn ghost" role="menuitemradio" aria-checked=move || (s.my_presence.get() == Presence::Online).to_string() on:click=move |_| pick(Presence::Online) style="justify-content:flex-start">
@@ -180,8 +207,8 @@ fn ChatList() -> impl IntoView {
         }
     };
     view! {
-        <aside class="sidebar" aria-labelledby="chats-title">
-            <div class="side-head">
+        <aside class="list-pane" aria-labelledby="chats-title">
+            <div class="list-head">
                 <h1 id="chats-title">"Chats"</h1>
                 <button class="icon-btn" aria-label="New chat" title="New chat (Ctrl+N)" on:click=move |_| s.new_chat_open.set(true)>
                     <Icon name="plus"/>
@@ -193,14 +220,11 @@ fn ChatList() -> impl IntoView {
                     class="input"
                     type="search"
                     aria-label="Filter chats"
-                    placeholder="Filter chats"
+                    placeholder="Filter"
                     prop:value=move || filter.get()
                     on:input=move |e| filter.set(event_target_value(&e))
                     on:keydown=move |e| if e.key() == "Enter" { s.switcher_open.set(true) }
                 />
-                <button class="btn ghost small kbd-hint" aria-label="Search messages" title="Search everything (Ctrl+K)" on:click=move |_| s.switcher_open.set(true)>
-                    <span class="kbd">"Ctrl K"</span>
-                </button>
             </div>
             <nav id="chat-list" class="scroll" aria-label="Conversations" style="flex:1;min-height:0" on:keydown=on_keydown>
                 <Show
@@ -275,9 +299,9 @@ fn ConvRow(id: ConversationId) -> impl IntoView {
             on:click=move |_| s.open(id)
         >
             {move || if is_group() {
-                view! { <Avatar name=title seed=seed group=true/> }.into_any()
+                view! { <Avatar name=title seed=seed group=true size=2.0/> }.into_any()
             } else {
-                view! { <Avatar name=title seed=seed presence=presence/> }.into_any()
+                view! { <Avatar name=title seed=seed presence=presence size=2.0/> }.into_any()
             }}
             <span class="conv-title">{move || title.get()}</span>
             <span class="conv-when">{move || c.get().and_then(|c| c.last_message.map(|m| format::short_when(m.ts))).unwrap_or_default()}</span>
@@ -469,13 +493,13 @@ fn Conversation(id: ConversationId) -> impl IntoView {
             <header class="chat-head">
                 <button class="icon-btn back-btn" aria-label="Back to chats" on:click=move |_| s.selected.set(None)><Icon name="chevron-left"/></button>
                 {move || if is_group() {
-                    view! { <Avatar name=title seed=seed group=true size=2.5/> }.into_any()
+                    view! { <Avatar name=title seed=seed group=true size=1.6/> }.into_any()
                 } else {
-                    view! { <Avatar name=title seed=seed presence=presence size=2.5/> }.into_any()
+                    view! { <Avatar name=title seed=seed presence=presence size=1.6/> }.into_any()
                 }}
-                <div class="grow">
+                <div class="grow chat-title">
                     <h2 id="chat-title" class="truncate">{move || title.get()}</h2>
-                    <p class="chat-sub">{subtitle}</p>
+                    <p class="chat-sub truncate">{subtitle}</p>
                 </div>
                 <Show when=move || is_group() && !c.get().is_some_and(|c| c.read_only)>
                     <button class="btn quiet small" on:click=move |_| add_open.set(true)><Icon name="invite"/>"Add people"</button>
@@ -755,14 +779,20 @@ fn render_message(s: Store, m: MessageView, cont: bool) -> AnyView {
     let reactions = m.reactions.clone();
     view! {
         <article class="msg" class:mine=m.mine class:cont=cont class:deleted=m.deleted tabindex="-1" aria-label=aria>
-            {(!m.mine).then(|| if cont {
-                view! { <span class="gutter"></span> }.into_any()
+            {if cont {
+                view! { <span class="gutter"><time class="gutter-time" title=full.clone()>{when.clone()}</time></span> }.into_any()
+            } else if m.mine {
+                view! { <span class="gutter"><Avatar name=name_sig seed=seed_sig size=1.75/></span> }.into_any()
             } else {
-                view! { <span class="gutter"><Avatar name=name_sig seed=seed_sig presence=presence/></span> }.into_any()
-            })}
+                view! { <span class="gutter"><Avatar name=name_sig seed=seed_sig presence=presence size=1.75/></span> }.into_any()
+            }}
             <div class="msg-col">
-                {(!cont && !m.mine).then(|| view! {
-                    <div class="msg-meta"><span class="who">{m.sender_name.clone()}</span><time title=full.clone()>{when.clone()}</time></div>
+                {(!cont).then(|| view! {
+                    <div class="msg-meta">
+                        <span class="who">{if m.sender_name.is_empty() { who.clone() } else { m.sender_name.clone() }}</span>
+                        {m.mine.then(|| view! { <span class="you">"You"</span> })}
+                        <time title=full.clone()>{when.clone()}</time>
+                    </div>
                 })}
                 {m.reply_to.clone().map(|r| view! {
                     <span class="quote"><strong>{r.sender_name}</strong>": "{r.text}</span>
@@ -788,9 +818,8 @@ fn render_message(s: Store, m: MessageView, cont: bool) -> AnyView {
                         }).collect_view()}
                     </div>
                 })}
-                {(m.mine || cont || m.edited).then(|| view! {
+                {(m.mine || m.edited).then(|| view! {
                     <div class="msg-foot">
-                        {(m.mine || cont).then(|| view! { <time title=full.clone()>{when.clone()}</time> })}
                         {m.edited.then(|| view! { <span>"Edited"</span> })}
                         {status}
                     </div>

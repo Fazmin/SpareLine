@@ -63,7 +63,11 @@ pub fn Settings() -> impl IntoView {
 fn Profile() -> impl IntoView {
     let s = store();
     let me = move || s.app.get().me;
-    let name = RwSignal::new(me().map(|m| m.display_name).unwrap_or_default());
+    let name = RwSignal::new(
+        s.app
+            .with_untracked(|a| a.me.as_ref().map(|m| m.display_name.clone()))
+            .unwrap_or_default(),
+    );
     let current = RwSignal::new(String::new());
     let new = RwSignal::new(String::new());
     let confirm = RwSignal::new(String::new());

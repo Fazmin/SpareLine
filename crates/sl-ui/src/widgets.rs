@@ -17,6 +17,15 @@ pub fn uid(prefix: &str) -> String {
     format!("{prefix}-{}", NEXT_ID.fetch_add(1, Ordering::Relaxed))
 }
 
+/// The label for the platform's shortcut modifier: "⌘" on macOS, "Ctrl " elsewhere
+/// (with a space, so "Ctrl K" reads as two keys).
+pub fn mod_key() -> &'static str {
+    let mac = web_sys::window()
+        .and_then(|w| w.navigator().user_agent().ok())
+        .is_some_and(|ua| ua.contains("Mac"));
+    if mac { "⌘" } else { "Ctrl " }
+}
+
 // -------------------------------------------------------------------------------------
 // The line
 // -------------------------------------------------------------------------------------
@@ -182,6 +191,10 @@ pub fn Modal(
     open: RwSignal<bool>,
     #[prop(into)] title: Signal<String>,
     #[prop(optional)] wide: bool,
+    /// Command-menu style: pinned near the top, title read by screen readers only,
+    /// closed with Esc or a click outside.
+    #[prop(optional)]
+    palette: bool,
     children: ChildrenFn,
 ) -> impl IntoView {
     let dlg: NodeRef<leptos::html::Dialog> = NodeRef::new();
@@ -199,15 +212,247 @@ pub fn Modal(
     let children = StoredValue::new(children);
     let labelled_by = title_id.clone();
     view! {
-        <dialog class="modal" class:wide=wide node_ref=dlg aria-labelledby=labelled_by on:close=move |_| open.set(false)>
+        <dialog
+            class="modal"
+            class:wide=wide
+            class:palette=palette
+            node_ref=dlg
+            aria-labelledby=labelled_by
+            on:close=move |_| open.set(false)
+            on:click=move |e| {
+                // A click on the dialog element itself is a click on the backdrop.
+                if palette && e.target() == e.current_target() {
+                    open.set(false);
+                }
+            }
+        >
             <div class="modal-head">
                 <h2 id=title_id class="grow">{move || title.get()}</h2>
-                <button class="icon-btn" aria-label="Close" on:click=move |_| open.set(false)>
-                    <Icon name="close"/>
-                </button>
+                {(!palette).then(|| view! {
+                    <button class="icon-btn" aria-label="Close" on:click=move |_| open.set(false)>
+                        <Icon name="close"/>
+                    </button>
+                })}
             </div>
             <Show when=move || open.get()>{move || children.with_value(|c| c())}</Show>
         </dialog>
+    }
+}
+
+// -------------------------------------------------------------------------------------
+// Command menu
+// -------------------------------------------------------------------------------------
+
+/// One entry in a [`CommandMenu`].
+#[derive(Clone)]
+pub struct Command {
+    /// Heading the entry is listed under; consecutive entries share one heading.
+    pub group: &'static str,
+    pub label: String,
+    /// Second line, for example a message preview.
+    pub detail: String,
+    /// Icon name, or empty when `avatar` is set.
+    pub icon: &'static str,
+    /// `(name, seed, is_group)` to show an avatar instead of an icon.
+    pub avatar: Option<(String, String, bool)>,
+    /// Text on the right, for example a time.
+    pub trail: String,
+    /// Keyboard shortcut shown on the right, one chip per key.
+    pub keys: Vec<&'static str>,
+    /// Plain closure rather than a `Callback`, so result lists can be rebuilt freely
+    /// without leaving reactive nodes behind.
+    pub run: std::sync::Arc<dyn Fn() + Send + Sync>,
+}
+
+impl Command {
+    pub fn new(
+        group: &'static str,
+        icon: &'static str,
+        label: impl Into<String>,
+        run: impl Fn() + Send + Sync + 'static,
+    ) -> Self {
+        Self {
+            group,
+            label: label.into(),
+            detail: String::new(),
+            icon,
+            avatar: None,
+            trail: String::new(),
+            keys: Vec::new(),
+            run: std::sync::Arc::new(run),
+        }
+    }
+    pub fn keys(mut self, keys: &[&'static str]) -> Self {
+        self.keys = keys.to_vec();
+        self
+    }
+    pub fn detail(mut self, d: impl Into<String>) -> Self {
+        self.detail = d.into();
+        self
+    }
+    pub fn trail(mut self, t: impl Into<String>) -> Self {
+        self.trail = t.into();
+        self
+    }
+    pub fn avatar(mut self, name: impl Into<String>, seed: impl Into<String>, group: bool) -> Self {
+        self.avatar = Some((name.into(), seed.into(), group));
+        self
+    }
+}
+
+/// A keyboard-first command palette: type to filter, arrows to move, Enter to run.
+/// The caller filters `items` from `query`, so it can mix static commands and search hits.
+#[component]
+pub fn CommandMenu(
+    open: RwSignal<bool>,
+    #[prop(into)] title: String,
+    #[prop(into)] placeholder: String,
+    query: RwSignal<String>,
+    #[prop(into)] items: Signal<Vec<Command>>,
+    /// Shown when nothing matches.
+    #[prop(into)]
+    empty: Signal<String>,
+) -> impl IntoView {
+    let active = RwSignal::new(0usize);
+    let list_id = uid("cmd");
+    // A new result set starts at the top.
+    Effect::new(move |_| {
+        items.with(|_| ());
+        active.set(0);
+    });
+    let opt_id = {
+        let list_id = list_id.clone();
+        move |i: usize| format!("{list_id}-{i}")
+    };
+    // Keep the highlighted entry in view.
+    {
+        let opt_id = opt_id.clone();
+        Effect::new(move |_| {
+            let i = active.get();
+            let Some(doc) = web_sys::window().and_then(|w| w.document()) else {
+                return;
+            };
+            let (Some(item), Some(list)) = (
+                doc.get_element_by_id(&opt_id(i))
+                    .and_then(|e| wasm_bindgen::JsCast::dyn_into::<web_sys::HtmlElement>(e).ok()),
+                doc.get_element_by_id(&opt_id(i))
+                    .and_then(|e| e.parent_element()),
+            ) else {
+                return;
+            };
+            let (top, bottom) = (item.offset_top(), item.offset_top() + item.offset_height());
+            if top < list.scroll_top() {
+                list.set_scroll_top(top - 8);
+            } else if bottom > list.scroll_top() + list.client_height() {
+                list.set_scroll_top(bottom - list.client_height() + 8);
+            }
+        });
+    }
+    let run = move |i: usize| {
+        let Some(cmd) = items.with_untracked(|v| v.get(i).cloned()) else {
+            return;
+        };
+        open.set(false);
+        query.set(String::new());
+        (cmd.run)();
+    };
+    let on_keydown = move |e: leptos::ev::KeyboardEvent| {
+        let n = items.with_untracked(Vec::len);
+        match e.key().as_str() {
+            "ArrowDown" if n > 0 => {
+                e.prevent_default();
+                active.update(|a| *a = (*a + 1) % n);
+            }
+            "ArrowUp" if n > 0 => {
+                e.prevent_default();
+                active.update(|a| *a = (*a + n - 1) % n);
+            }
+            "Enter" => {
+                e.prevent_default();
+                run(active.get_untracked());
+            }
+            _ => {}
+        }
+    };
+    let active_desc = {
+        let opt_id = opt_id.clone();
+        Signal::derive(move || (!items.with(Vec::is_empty)).then(|| opt_id(active.get())))
+    };
+    let list_for_input = list_id.clone();
+    let title_for_list = title.clone();
+    view! {
+        <Modal open=open title=title palette=true>
+            <div class="cmd">
+                <div class="cmd-search">
+                    <Icon name="search"/>
+                    <input
+                        class="cmd-input"
+                        type="text"
+                        role="combobox"
+                        aria-expanded="true"
+                        aria-autocomplete="list"
+                        aria-controls=list_for_input.clone()
+                        aria-activedescendant=move || active_desc.get()
+                        aria-label=placeholder.clone()
+                        placeholder=placeholder.clone()
+                        autofocus
+                        prop:value=move || query.get()
+                        on:input=move |e| query.set(event_target_value(&e))
+                        on:keydown=on_keydown
+                    />
+                </div>
+                <ul class="cmd-list" id=list_id.clone() role="listbox" aria-label=title_for_list.clone()>
+                    {
+                        let opt_id = opt_id.clone();
+                        move || {
+                            let v = items.get();
+                            if v.is_empty() {
+                                return view! { <li class="cmd-empty" role="presentation">{move || empty.get()}</li> }.into_any();
+                            }
+                            let mut last: Option<&'static str> = None;
+                            v.into_iter().enumerate().map(|(i, c)| {
+                                let head = (last != Some(c.group)).then(|| view! { <li class="cmd-group" role="presentation">{c.group}</li> });
+                                last = Some(c.group);
+                                let lead = match c.avatar.clone() {
+                                    Some((n, s, g)) => view! { <Avatar name=Signal::stored(n) seed=Signal::stored(s) size=1.5 group=g/> }.into_any(),
+                                    None => view! { <Icon name=c.icon/> }.into_any(),
+                                };
+                                let has_detail = !c.detail.is_empty();
+                                view! {
+                                    {head}
+                                    <li
+                                        class="cmd-item"
+                                        role="option"
+                                        id=opt_id(i)
+                                        aria-selected=move || (active.get() == i).to_string()
+                                        on:mousemove=move |_| if active.get_untracked() != i { active.set(i) }
+                                        on:click=move |_| run(i)
+                                    >
+                                        {lead}
+                                        <span class="grow">
+                                            <span class="cmd-label truncate">{c.label.clone()}</span>
+                                            {has_detail.then(|| view! { <span class="cmd-detail">{c.detail.clone()}</span> })}
+                                        </span>
+                                        {(!c.trail.is_empty()).then(|| view! { <span class="cmd-trail">{c.trail.clone()}</span> })}
+                                        {(!c.keys.is_empty()).then(|| view! {
+                                            <span class="cmd-trail" aria-hidden="true">
+                                                {c.keys.iter().map(|k| view! { <span class="kbd">{*k}</span> }).collect_view()}
+                                            </span>
+                                        })}
+                                    </li>
+                                }
+                            }).collect_view().into_any()
+                        }
+                    }
+                </ul>
+                <div class="cmd-foot" aria-hidden="true">
+                    <span><span class="kbd">"↑"</span><span class="kbd">"↓"</span>" to move"</span>
+                    <span><span class="kbd">"↵"</span>" to choose"</span>
+                    <span class="grow"></span>
+                    <span><span class="kbd">"Esc"</span>" to close"</span>
+                </div>
+            </div>
+        </Modal>
     }
 }
 
@@ -229,7 +474,7 @@ pub fn Switch(
     view! {
         <label class="switch" for=for_id>
             <span class="stack" style="gap:0">
-                <span style="font-weight:600">{label}</span>
+                <span style="font-weight:500">{label}</span>
                 {has_hint.then(|| view! { <span class="hint" id=hint_id.clone()>{hint.clone()}</span> })}
             </span>
             <input
@@ -292,7 +537,7 @@ pub fn AppearanceControls() -> impl IntoView {
                         <span style="font-size:0.85em">"A"</span>
                         "−"
                     </button>
-                    <output class="grow" style="text-align:center;font-weight:700" aria-live="polite">
+                    <output class="grow" style="text-align:center;font-weight:600" aria-live="polite">
                         {move || format!("{}%", prefs.get().percent())}
                     </output>
                     <button
@@ -310,6 +555,12 @@ pub fn AppearanceControls() -> impl IntoView {
                     <span class="kbd">"−"</span> ", reset with " <span class="kbd">"0"</span>
                 </span>
             </div>
+            <Switch
+                label="Easier-to-read font"
+                hint="Atkinson Hyperlegible: letters like I, l and 1 are easy to tell apart."
+                checked=Signal::derive(move || prefs.get().legible_font)
+                on_change=Callback::new(move |v| prefs.update(|p| p.legible_font = v))
+            />
             <Switch
                 label="High contrast"
                 hint="Black and white with stronger outlines."
@@ -347,7 +598,7 @@ pub fn AaButton(#[prop(optional)] align_left: bool) -> impl IntoView {
                 aria-expanded=move || open.get().to_string()
                 aria-controls=pop_id.clone()
                 on:click=move |_| open.update(|o| *o = !*o)
-                style="font-weight:700;letter-spacing:-0.02em"
+                style="font-weight:600;letter-spacing:-0.02em;font-size:var(--t-sm)"
             >
                 "Aa"
             </button>
@@ -358,7 +609,7 @@ pub fn AaButton(#[prop(optional)] align_left: bool) -> impl IntoView {
                     id=pop_id.clone()
                     role="dialog"
                     aria-label="Appearance and accessibility"
-                    style=if align_left { "left:0;bottom:0;transform:translateX(3.5rem)" } else { "right:0;top:calc(100% + 6px)" }
+                    style=if align_left { "left:0;bottom:calc(100% + 6px)" } else { "right:0;top:calc(100% + 6px)" }
                     on:keydown=move |e| {
                         if e.key() == "Escape" {
                             close();

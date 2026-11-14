@@ -69,7 +69,6 @@ pub fn AnnouncementsPage() -> impl IntoView {
     };
     view! {
         <div class="page-head">
-            <span class="page-icon" aria-hidden="true"><Icon name="megaphone"/></span>
             <div class="grow">
                 <h1>"Announcements"</h1>
                 <p class="lede">"Show a banner at the top of everyone's SpareLine. Use it to say what's happening and where people should talk. Announcements are not encrypted, so don't include anything confidential."</p>
