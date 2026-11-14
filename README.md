@@ -18,9 +18,9 @@
 ## See it
 
 <p align="center">
-  <a href="docs/assets/walkthrough.mp4"><img src="docs/assets/walkthrough-poster.jpg" alt="Play the walkthrough video (1 minute 43 seconds): setting up the server, handing out invites, a staff member joining, and chatting while the cloud is down" width="100%"></a>
+  <a href="docs/assets/walkthrough.mp4"><img src="docs/assets/walkthrough.webp" alt="Walkthrough, 1 minute 43 seconds with captions: setting up the server, handing out invites, a staff member joining, and chatting while the cloud is down" width="100%"></a>
 </p>
-<p align="center"><sub>A 1:43 screen recording with captions and no sound. It sets up the server, hands out invites, joins as a member of staff, and keeps talking when the cloud is down.</sub></p>
+<p align="center"><sub>A 1:43 screen recording with captions and no sound. It sets up the server, hands out invites, joins as a member of staff, and keeps talking when the cloud is down. To pause or skip through it, open the <a href="docs/assets/walkthrough.mp4">video file</a>.</sub></p>
 
 <table>
   <tr>
