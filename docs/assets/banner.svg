@@ -2,20 +2,20 @@
   <title id="t">SpareLine</title>
   <desc id="d">Keep talking when the cloud goes down. Self-hosted, end-to-end encrypted chat for your office network.</desc>
   <style>
-    .bg { fill: #f3f5f3; }
-    .rule { fill: #d8dfdb; }
-    .ink { fill: #17201d; }
-    .muted { fill: #59645f; }
-    .signal { fill: #1b7a5c; }
-    .word { font: 800 76px "Atkinson Hyperlegible Next", "Segoe UI", -apple-system, system-ui, sans-serif; letter-spacing: -1.5px; }
-    .tag { font: 600 30px "Atkinson Hyperlegible Next", "Segoe UI", -apple-system, system-ui, sans-serif; }
-    .sub { font: 400 21px "Atkinson Hyperlegible Next", "Segoe UI", -apple-system, system-ui, sans-serif; }
+    .bg { fill: #f4f4f6; }
+    .rule { fill: #e7e7eb; }
+    .ink { fill: #1b1c20; }
+    .muted { fill: #676a73; }
+    .signal { fill: #26a35f; }
+    .word { font: 700 76px -apple-system, BlinkMacSystemFont, "Segoe UI Variable Display", "Segoe UI", Inter, system-ui, sans-serif; letter-spacing: -2.5px; }
+    .tag { font: 500 30px -apple-system, BlinkMacSystemFont, "Segoe UI Variable Display", "Segoe UI", Inter, system-ui, sans-serif; letter-spacing: -0.4px; }
+    .sub { font: 400 21px -apple-system, BlinkMacSystemFont, "Segoe UI Variable Display", "Segoe UI", Inter, system-ui, sans-serif; }
     @media (prefers-color-scheme: dark) {
-      .bg { fill: #111715; }
-      .rule { fill: #2b3734; }
-      .ink { fill: #e7ede9; }
-      .muted { fill: #98a59f; }
-      .signal { fill: #4cc596; }
+      .bg { fill: #0d0e10; }
+      .rule { fill: #25262b; }
+      .ink { fill: #ececef; }
+      .muted { fill: #8f919a; }
+      .signal { fill: #4cb782; }
     }
   </style>
   <rect class="bg" width="1200" height="300" rx="24"/>

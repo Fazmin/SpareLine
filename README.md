@@ -17,10 +17,15 @@
 
 ## See it
 
+<p align="center">
+  <a href="docs/assets/walkthrough.mp4"><img src="docs/assets/walkthrough-poster.jpg" alt="Play the walkthrough video (1 minute 43 seconds): setting up the server, handing out invites, a staff member joining, and chatting while the cloud is down" width="100%"></a>
+</p>
+<p align="center"><sub>A 1:43 screen recording with captions and no sound. It sets up the server, hands out invites, joins as a member of staff, and keeps talking when the cloud is down.</sub></p>
+
 <table>
   <tr>
-    <td width="50%"><img src="docs/assets/screenshot-chat.png" alt="The SpareLine chat app in the light theme, showing an incident-room group chat and an announcement banner"></td>
-    <td width="50%"><img src="docs/assets/screenshot-panel.png" alt="The SpareLine Server control panel in the dark theme, showing server status, connected people, message activity charts and a health check"></td>
+    <td width="50%"><img src="docs/assets/screenshot-chat.png" alt="The SpareLine chat app in the light theme: a sidebar, the chat list and an incident-room group chat, with an announcement banner across the top"></td>
+    <td width="50%"><img src="docs/assets/screenshot-panel.png" alt="The SpareLine Server control panel in the dark theme: a sidebar with the server status, and an overview of connected people, invites, message activity charts and a health check"></td>
   </tr>
   <tr>
     <td align="center">The chat app</td>
@@ -56,7 +61,8 @@ The [privacy statement](docs/PRIVACY.md) has the full list of what is stored and
 
 ## Good to know
 
-- **Calm to use.** Light and dark themes, larger text, high contrast and full keyboard support.
+- **Calm to use.** A quiet, compact design in light and dark, with larger text, high contrast, an easier-to-read font and full keyboard support.
+- **Quick to get around.** Press <kbd>⌘K</kbd> (<kbd>Ctrl</kbd>+<kbd>K</kbd> on Windows) in either app to jump to any chat, page or action.
 - **Easy to look after.** The control panel shows who's connected, what's wrong and how to fix it.
 
 ## Get started

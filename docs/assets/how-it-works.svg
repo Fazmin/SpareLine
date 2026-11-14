@@ -2,40 +2,40 @@
   <title id="t">How SpareLine works</title>
   <desc id="d">Normally your team talks through cloud chat, email and meetings. When that line goes down, staff computers keep talking over the spare line: your own office network, to a SpareLine Server on one office computer. Messages are encrypted on each device, so the server only relays sealed messages and the admin can't read them.</desc>
   <style>
-    .bg { fill: #f3f5f3; }
-    .card { fill: #ffffff; stroke: #d8dfdb; stroke-width: 2; }
-    .cloud { fill: #e6eae7; }
-    .ink { fill: #17201d; }
-    .ink-s { stroke: #17201d; }
-    .muted { fill: #59645f; }
-    .faint-s { stroke: #a9b4ae; }
-    .signal { fill: #1b7a5c; }
-    .signal-s { stroke: #1b7a5c; }
-    .signal-tint { fill: #e0f0e8; }
-    .fail { fill: #b3261e; }
-    .fail-tint { fill: #fbe4e1; }
+    .bg { fill: #f4f4f6; }
+    .card { fill: #ffffff; stroke: #e7e7eb; stroke-width: 2; }
+    .cloud { fill: #e9e9ed; }
+    .ink { fill: #1b1c20; }
+    .ink-s { stroke: #1b1c20; }
+    .muted { fill: #676a73; }
+    .faint-s { stroke: #b4b6bd; }
+    .signal { fill: #26a35f; }
+    .signal-s { stroke: #26a35f; }
+    .signal-tint { fill: #e8f6ee; }
+    .fail { fill: #b8401f; }
+    .fail-tint { fill: #fdeee8; }
     .white { fill: #ffffff; }
-    .fail-x { stroke: #b3261e; }
-    text { font-family: "Atkinson Hyperlegible Next", "Segoe UI", -apple-system, system-ui, sans-serif; }
-    .h { font-size: 24px; font-weight: 800; }
+    .fail-x { stroke: #b8401f; }
+    text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI Variable Display", "Segoe UI", Inter, system-ui, sans-serif; }
+    .h { font-size: 24px; font-weight: 600; letter-spacing: -0.3px; }
     .b { font-size: 18px; font-weight: 400; }
     .s { font-size: 16px; font-weight: 600; }
-    .pill { font-size: 15px; font-weight: 800; }
+    .pill { font-size: 15px; font-weight: 600; }
     @media (prefers-color-scheme: dark) {
-      .bg { fill: #111715; }
-      .card { fill: #182120; stroke: #2b3734; }
-      .cloud { fill: #22302d; }
-      .ink { fill: #e7ede9; }
-      .ink-s { stroke: #e7ede9; }
-      .muted { fill: #98a59f; }
-      .faint-s { stroke: #4a5954; }
-      .signal { fill: #4cc596; }
-      .signal-s { stroke: #4cc596; }
-      .signal-tint { fill: #173328; }
-      .fail { fill: #ff8a80; }
-      .fail-tint { fill: #3a1b19; }
-      .white { fill: #111715; }
-      .fail-x { stroke: #ff8a80; }
+      .bg { fill: #0d0e10; }
+      .card { fill: #17181b; stroke: #25262b; }
+      .cloud { fill: #1e1f23; }
+      .ink { fill: #ececef; }
+      .ink-s { stroke: #ececef; }
+      .muted { fill: #8f919a; }
+      .faint-s { stroke: #383a41; }
+      .signal { fill: #4cb782; }
+      .signal-s { stroke: #4cb782; }
+      .signal-tint { fill: #14261c; }
+      .fail { fill: #f2865e; }
+      .fail-tint { fill: #2f1d16; }
+      .white { fill: #0d0e10; }
+      .fail-x { stroke: #f2865e; }
     }
   </style>
 
