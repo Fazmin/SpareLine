@@ -1,7 +1,3 @@
-<p align="center">
-  <img src="docs/assets/banner.svg" alt="SpareLine: keep talking when the cloud goes down" width="100%">
-</p>
-
 **SpareLine is a backup chat app for your organisation.** When your usual cloud chat, email or meeting tools go down, everyone can keep talking over your own office network. It doesn't need the internet or any outside company.
 
 <p align="center">
