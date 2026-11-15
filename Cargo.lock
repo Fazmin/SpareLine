@@ -6125,7 +6125,7 @@ checksum = "33f4fe9184a62d842c9ef383018f3306d8ba224fd9d836f56d7288308847c256"
 
 [[package]]
 name = "sl-client-core"
-version = "0.1.0"
+version = "0.1.22"
 dependencies = [
  "anyhow",
  "chacha20poly1305",
@@ -6165,7 +6165,7 @@ dependencies = [
 
 [[package]]
 name = "sl-net"
-version = "0.1.0"
+version = "0.1.22"
 dependencies = [
  "if-addrs",
  "parking_lot",
@@ -6182,7 +6182,7 @@ dependencies = [
 
 [[package]]
 name = "sl-proto"
-version = "0.1.0"
+version = "0.1.22"
 dependencies = [
  "data-encoding",
  "hkdf 0.12.4",
@@ -6197,7 +6197,7 @@ dependencies = [
 
 [[package]]
 name = "sl-server"
-version = "0.1.0"
+version = "0.1.22"
 dependencies = [
  "anyhow",
  "argon2",
@@ -6240,7 +6240,7 @@ dependencies = [
 
 [[package]]
 name = "sl-ui"
-version = "0.1.0"
+version = "0.1.22"
 dependencies = [
  "gloo-timers",
  "js-sys",
@@ -6357,7 +6357,7 @@ dependencies = [
 
 [[package]]
 name = "spareline"
-version = "0.1.0"
+version = "0.1.22"
 dependencies = [
  "anyhow",
  "parking_lot",
@@ -6381,7 +6381,7 @@ dependencies = [
 
 [[package]]
 name = "spareline-client-ui"
-version = "0.1.0"
+version = "0.1.22"
 dependencies = [
  "gloo-timers",
  "js-sys",
@@ -6398,7 +6398,7 @@ dependencies = [
 
 [[package]]
 name = "spareline-server"
-version = "0.1.0"
+version = "0.1.22"
 dependencies = [
  "anyhow",
  "parking_lot",
@@ -6420,7 +6420,7 @@ dependencies = [
 
 [[package]]
 name = "spareline-server-ui"
-version = "0.1.0"
+version = "0.1.22"
 dependencies = [
  "gloo-timers",
  "js-sys",
@@ -8743,7 +8743,7 @@ dependencies = [
 
 [[package]]
 name = "xtask"
-version = "0.1.0"
+version = "0.1.22"
 dependencies = [
  "anyhow",
  "sl-client-core",

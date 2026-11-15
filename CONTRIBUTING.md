@@ -23,7 +23,8 @@ You need:
 ```sh
 cargo xtask dev-server     # server + control panel (the first run shows setup)
 cargo xtask dev-client     # chat client
-cargo xtask ci             # what CI runs: fmt, clippy (native + wasm), tests
+cargo xtask ci             # what CI runs: version check, fmt, clippy (native + wasm), tests
+cargo xtask version        # show the version (see "Versions and releases" below)
 cargo xtask discover       # list SpareLine servers visible on your network
 ```
 
@@ -76,7 +77,33 @@ docs/                  privacy statement, admin guide, staff quick start, protoc
 - Keep each PR focused, and describe what changed and why.
 - Include screenshots for UI changes, ideally light and dark.
 - Note any change to the wire protocol and whether it's backwards compatible. Bump `PROTOCOL_VERSION` if it isn't.
-- When cutting a release, update `version` in `Cargo.toml` and both `version` and `date-released` in `CITATION.cff`.
+- Add a line under **Unreleased** in [CHANGELOG.md](CHANGELOG.md) for anything people would notice.
+
+## Versions and releases
+
+SpareLine has one version number for both apps, the server and every crate. It lives in one place, `version` under `[workspace.package]` in the root `Cargo.toml`, and everything else follows it:
+
+- The Rust code reports it with `env!("CARGO_PKG_VERSION")`: in Settings → About, in problem reports, and in `spareline-server --version`.
+- Both Tauri apps take it from `Cargo.toml` when they're built. Their `tauri.conf.json` files deliberately have no `version`.
+- `CITATION.cff`, the README footer and `CHANGELOG.md` repeat it for readers, and `cargo xtask version` keeps them in step.
+
+```sh
+cargo xtask version                  # show the version and check every file agrees
+cargo xtask version bump patch       # 0.1.22 → 0.1.23
+cargo xtask version bump minor       # 0.1.22 → 0.2.0
+cargo xtask version set 0.2.0        # set an exact version
+```
+
+`bump` and `set` update `Cargo.toml`, `Cargo.lock`, `CITATION.cff` (version and release date), the README footer, and `CHANGELOG.md`, where the notes under **Unreleased** move under the new version. `cargo xtask ci` fails if any of these disagree.
+
+**Which number to change.** While SpareLine is at 0.x, bump **minor** when the server and every app have to be updated together: a change to the wire protocol that isn't backwards compatible (which also bumps `PROTOCOL_VERSION`), or a database change older versions can't read. Bump **patch** for everything else, including new features that work with older apps. Windows installers limit the first two numbers to 255 and the last to 65535.
+
+**Cutting a release:**
+
+1. Check that the notes under **Unreleased** in `CHANGELOG.md` cover the release.
+2. Run `cargo xtask version bump patch` (or `minor`), then `cargo xtask ci`.
+3. Commit and tag: `git commit -am "Release 0.1.23"` and `git tag -a v0.1.23 -m "SpareLine 0.1.23"`.
+4. Push with `git push --follow-tags`, then build the installers with `cargo xtask bundle`.
 
 ## License
 

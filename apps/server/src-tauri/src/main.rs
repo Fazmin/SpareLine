@@ -12,7 +12,7 @@
 //! Taking over from a failed server: `spareline-server --headless --restore COPY`
 //! with `SPARELINE_STANDBY_PASSWORD` set, on a fresh install or an empty `--data-dir`.
 //!
-//! `spareline-server --help` lists every option.
+//! `spareline-server --help` lists every option, and `--version` shows the version.
 
 #![cfg_attr(
     all(not(debug_assertions), target_os = "windows"),
@@ -620,6 +620,7 @@ Options:
   --standby-every MINUTES  How often to make a copy, 5 to 1440 (default 15)
   --standby-keep N         How many copies to keep, 1 to 50 (default 4)
   --standby-off            Turn standby copies off
+  --version                Show the version
   --help                   Show this help
 
 The restore and standby options work with --headless. In the tray app, use the
@@ -690,6 +691,10 @@ fn main() {
     let args: Vec<String> = std::env::args().collect();
     if args.iter().any(|a| a == "--help" || a == "-h") {
         print!("{HELP}");
+        return;
+    }
+    if args.iter().any(|a| a == "--version" || a == "-V") {
+        println!("SpareLine Server {}", env!("CARGO_PKG_VERSION"));
         return;
     }
     let data_dir = arg_value(&args, "--data-dir")

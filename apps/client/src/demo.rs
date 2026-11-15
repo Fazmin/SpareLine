@@ -334,7 +334,7 @@ fn directory() -> Directory {
 
 fn diagnostics() -> Diagnostics {
     Diagnostics {
-        app_version: "0.1.0".into(),
+        app_version: env!("CARGO_PKG_VERSION").into(),
         platform: "windows".into(),
         server: state(Phase::Ready).server,
         conn: ConnState::Connected { rtt_ms: Some(4) },
@@ -405,7 +405,7 @@ pub fn install(mode: &str) {
             "diagnostics" => serde_json::to_value(diagnostics()).unwrap_or_default(),
             "discover" => serde_json::to_value(diagnostics().discovered).unwrap_or_default(),
             "app_info" => {
-                json!({ "version": "0.1.0", "platform": "windows", "data_dir": "C:\\Users\\alex\\AppData\\Local\\SpareLine\\Client" })
+                json!({ "version": env!("CARGO_PKG_VERSION"), "platform": "windows", "data_dir": "C:\\Users\\alex\\AppData\\Local\\SpareLine\\Client" })
             }
             "read_receipts" | "autostart_enabled" => json!(true),
             "search" => json!([]),

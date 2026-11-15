@@ -98,4 +98,4 @@ Writing about SpareLine? Use **Cite this repository** in the sidebar on GitHub t
 
 ---
 
-<sub>SpareLine is written in Rust and is in early development (v0.1). Licensed under either [MIT](LICENSE-MIT) or [Apache 2.0](LICENSE-APACHE), at your option.</sub>
+<sub>SpareLine is written in Rust and is in early development: version <!-- version -->0.1.22<!-- /version -->, with changes listed in the [changelog](CHANGELOG.md). Licensed under either [MIT](LICENSE-MIT) or [Apache 2.0](LICENSE-APACHE), at your option.</sub>

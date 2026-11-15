@@ -283,7 +283,7 @@ fn standby_info() -> StandbyInfo {
         port: 7443,
         people: 47,
         addresses: vec!["192.168.1.20".into()],
-        app_version: "0.1.0".into(),
+        app_version: env!("CARGO_PKG_VERSION").into(),
     }
 }
 
@@ -359,7 +359,7 @@ fn detail(uid: Uuid) -> UserDetail {
                 id: id(300),
                 name: "ALEX-LAPTOP".into(),
                 platform: "windows".into(),
-                client_version: "0.1.0".into(),
+                client_version: env!("CARGO_PKG_VERSION").into(),
                 created_at: now() - 20 * 86_400_000,
                 last_seen: Some(now()),
                 revoked: false,
@@ -369,7 +369,7 @@ fn detail(uid: Uuid) -> UserDetail {
                 id: id(301),
                 name: "Alex's MacBook".into(),
                 platform: "macos".into(),
-                client_version: "0.1.0".into(),
+                client_version: env!("CARGO_PKG_VERSION").into(),
                 created_at: now() - 3 * 86_400_000,
                 last_seen: Some(now() - 2 * 86_400_000),
                 revoked: false,
@@ -391,7 +391,7 @@ fn detail(uid: Uuid) -> UserDetail {
                 user: Some(uref(1, &user.display_name, &user.username)),
                 device_id: Some(id(300)),
                 kind: ConnEventKind::Connected,
-                detail: "windows 0.1.0".into(),
+                detail: format!("windows {}", env!("CARGO_PKG_VERSION")),
             },
             ConnectionEvent {
                 ts: now() - 41 * 60_000,
@@ -414,7 +414,7 @@ fn detail(uid: Uuid) -> UserDetail {
             received_at: now() - 39 * 60_000,
             device_id: id(300),
             report: ClientHealthReport {
-                client_version: "0.1.0".into(),
+                client_version: env!("CARGO_PKG_VERSION").into(),
                 platform: "windows".into(),
                 window_start: now() - 44 * 60_000,
                 window_end: now() - 41 * 60_000,
@@ -582,7 +582,7 @@ pub fn install(mode: &str) {
                     ip: "192.168.1.54".into(),
                     connected_at: now() - 40 * 60_000,
                     rtt_ms: Some(3),
-                    client_version: "0.1.0".into(),
+                    client_version: env!("CARGO_PKG_VERSION").into(),
                     platform: "windows".into(),
                 },
                 ConnectionRow {
@@ -593,7 +593,7 @@ pub fn install(mode: &str) {
                     ip: "192.168.1.61".into(),
                     connected_at: now() - 55 * 60_000,
                     rtt_ms: Some(5),
-                    client_version: "0.1.0".into(),
+                    client_version: env!("CARGO_PKG_VERSION").into(),
                     platform: "windows".into(),
                 },
                 ConnectionRow {
@@ -604,7 +604,7 @@ pub fn install(mode: &str) {
                     ip: "192.168.1.77".into(),
                     connected_at: now() - 12 * 60_000,
                     rtt_ms: Some(11),
-                    client_version: "0.1.0".into(),
+                    client_version: env!("CARGO_PKG_VERSION").into(),
                     platform: "macos".into(),
                 },
             ])
@@ -656,7 +656,7 @@ pub fn install(mode: &str) {
             }])
             .unwrap_or_default(),
             "app_info" => {
-                json!({ "version": "0.1.0", "data_dir": "C:\\Users\\it-admin\\AppData\\Local\\SpareLine\\Server", "platform": "windows" })
+                json!({ "version": env!("CARGO_PKG_VERSION"), "data_dir": "C:\\Users\\it-admin\\AppData\\Local\\SpareLine\\Server", "platform": "windows" })
             }
             "autostart_enabled" => json!(true),
             "standby_status" => {

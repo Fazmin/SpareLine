@@ -1,7 +1,8 @@
 //! Developer tasks.
 //!
 //! ```text
-//! cargo xtask ci          fmt check, clippy (deny warnings), tests
+//! cargo xtask ci          version check, fmt check, clippy (deny warnings), tests
+//! cargo xtask version     show the version; `bump <patch|minor|major>` or `set <X.Y.Z>`
 //! cargo xtask discover    list SpareLine servers visible on this network (mDNS)
 //! cargo xtask dev-server  run the server control panel (cargo tauri dev)
 //! cargo xtask dev-client  run the chat client (cargo tauri dev)
@@ -9,6 +10,8 @@
 //! ```
 
 use std::process::{Command, ExitCode};
+
+mod version;
 
 fn run(dir: &str, prog: &str, args: &[&str]) -> bool {
     println!("$ ({dir}) {prog} {}", args.join(" "));
@@ -24,7 +27,8 @@ fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
     let ok = match args.first().map(String::as_str) {
         Some("ci") => {
-            run(".", "cargo", &["fmt", "--all", "--check"])
+            version::check()
+                && run(".", "cargo", &["fmt", "--all", "--check"])
                 && run(
                     ".",
                     "cargo",
@@ -100,6 +104,7 @@ fn main() -> ExitCode {
             }
             true
         }
+        Some("version") => version::run(&args[1..]),
         Some("dev-server") => run("apps/server", "cargo", &["tauri", "dev"]),
         Some("dev-client") => run("apps/client", "cargo", &["tauri", "dev"]),
         Some("bundle") => {
@@ -107,7 +112,7 @@ fn main() -> ExitCode {
                 && run("apps/client", "cargo", &["tauri", "build"])
         }
         _ => {
-            eprintln!("usage: cargo xtask <ci|discover|dev-server|dev-client|bundle>");
+            eprintln!("usage: cargo xtask <ci|version|discover|dev-server|dev-client|bundle>");
             false
         }
     };

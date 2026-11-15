@@ -1,7 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "SpareLine Server",
-  "version": "0.1.0",
   "identifier": "app.spareline.server",
   "build": {
     "beforeDevCommand": "trunk serve",

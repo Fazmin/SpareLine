@@ -22,8 +22,8 @@ abstract: >-
 authors:
   - name: "SpareLine contributors"
 
-version: "0.1.0"
-date-released: 2023-02-21
+version: "0.1.22"
+date-released: 2026-11-15
 license:
   - MIT
   - Apache-2.0
